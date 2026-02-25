@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
+const rateLimit = require('express-rate-limit');
 const healthRoute = require('./routes/health');
 const authRoute = require('./routes/auth');
 const usersRoute = require('./routes/users');
@@ -33,6 +34,27 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Global API rate limiter — 100 requests per 15 min per IP
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { error: 'Too many requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use('/api/', apiLimiter);
+
+// Stricter limiter for write operations (POST/PUT/DELETE/PATCH)
+const writeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { error: 'Too many write requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS'
+});
+app.use('/api/', writeLimiter);
 
 // Serve uploaded images (restricted to image file extensions only)
 app.use('/api/uploads', (req, res, next) => {

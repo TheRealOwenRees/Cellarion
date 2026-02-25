@@ -12,6 +12,11 @@ const Bottle = require('../../models/Bottle');
 const searchService = require('../../services/search');
 const { logAudit } = require('../../services/audit');
 
+// Escape special regex characters to prevent ReDoS / NoSQL injection
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 const router = express.Router();
 
 // All routes require admin role
@@ -82,8 +87,8 @@ router.get('/duplicates', async (req, res) => {
     if (searchTerms) {
       query = query.or([
         { $text: { $search: searchTerms } },
-        { name: new RegExp(name.split(' ')[0], 'i') },
-        { producer: new RegExp(producer.split(' ')[0], 'i') }
+        { name: new RegExp(escapeRegex(name.split(' ')[0]), 'i') },
+        { producer: new RegExp(escapeRegex(producer.split(' ')[0]), 'i') }
       ]);
     }
 

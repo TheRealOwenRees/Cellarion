@@ -1,9 +1,33 @@
 const express = require('express');
+const fs = require('fs');
 const { requireAuth } = require('../middleware/auth');
 const { upload } = require('../config/upload');
 const BottleImage = require('../models/BottleImage');
 const Bottle = require('../models/Bottle');
+const Cellar = require('../models/Cellar');
+const { getCellarRole } = require('../utils/cellarAccess');
 const { processImage } = require('../services/imageProcessor');
+
+// Validate image file by checking magic bytes (first 12 bytes)
+function validateImageMagicBytes(filePath) {
+  const buf = Buffer.alloc(12);
+  const fd = fs.openSync(filePath, 'r');
+  try {
+    fs.readSync(fd, buf, 0, 12, 0);
+  } finally {
+    fs.closeSync(fd);
+  }
+
+  // JPEG: FF D8 FF
+  if (buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF) return true;
+  // PNG: 89 50 4E 47
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) return true;
+  // WebP: RIFF....WEBP
+  if (buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
+      buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50) return true;
+
+  return false;
+}
 
 const router = express.Router();
 
@@ -12,6 +36,12 @@ router.post('/upload', requireAuth, upload.single('image'), async (req, res) => 
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    // Validate magic bytes to confirm the file is actually an image
+    if (!validateImageMagicBytes(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: 'File content does not match a supported image format (JPEG, PNG, or WebP)' });
     }
 
     const { bottleId, wineDefinitionId } = req.body;
@@ -89,10 +119,37 @@ router.get('/:id', requireAuth, async (req, res) => {
     if (!image) {
       return res.status(404).json({ error: 'Image not found' });
     }
-    // Only allow uploader to see their own images, or anyone to see approved images
-    if (image.uploadedBy.toString() !== req.user.id && image.status !== 'approved') {
+
+    let authorized = false;
+
+    // User uploaded the image
+    if (image.uploadedBy.toString() === req.user.id) {
+      authorized = true;
+    }
+
+    // Image is approved (visible to all authenticated users)
+    if (!authorized && image.status === 'approved') {
+      authorized = true;
+    }
+
+    // User owns the bottle this image is attached to, or has cellar access
+    if (!authorized && image.bottle) {
+      const bottle = await Bottle.findById(image.bottle);
+      if (bottle && bottle.user.toString() === req.user.id) {
+        authorized = true;
+      }
+      if (!authorized && bottle && bottle.cellar) {
+        const cellar = await Cellar.findById(bottle.cellar);
+        if (cellar && getCellarRole(cellar, req.user.id)) {
+          authorized = true;
+        }
+      }
+    }
+
+    if (!authorized) {
       return res.status(404).json({ error: 'Image not found' });
     }
+
     res.json({ image });
   } catch (error) {
     console.error('Get image error:', error);
