@@ -14,7 +14,7 @@ const rackSchema = new mongoose.Schema({
   slots:     [slotSchema],
   // Soft-delete: set when deleted, null when active
   deletedAt: { type: Date, default: null }
-}, { timestamps: true });
+}, { timestamps: true, optimisticConcurrency: true });
 
 rackSchema.index({ cellar: 1, name: 1 }, { unique: true });
 // TTL: auto-purge soft-deleted racks after 30 days

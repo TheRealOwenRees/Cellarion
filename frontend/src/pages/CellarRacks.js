@@ -5,7 +5,7 @@ import './CellarRacks.css';
 
 function CellarRacks() {
   const { id } = useParams();
-  const { token } = useAuth();
+  const { apiFetch } = useAuth();
   const [searchParams] = useSearchParams();
   const highlightBottleId = searchParams.get('highlight');
   const [highlightPos, setHighlightPos] = useState(null); // { rackId, position }
@@ -65,13 +65,12 @@ function CellarRacks() {
     [bottles, placedBottleIds]
   );
 
-  const auth = () => ({ 'Authorization': `Bearer ${token}` });
 
   const fetchAll = async () => {
     try {
       const [cellarRes, racksRes] = await Promise.all([
-        fetch(`/api/cellars/${id}`, { headers: auth() }),
-        fetch(`/api/racks?cellar=${id}`, { headers: auth() })
+        apiFetch(`/api/cellars/${id}`),
+        apiFetch(`/api/racks?cellar=${id}`)
       ]);
       const cellarData = await cellarRes.json();
       const racksData  = await racksRes.json();
@@ -96,9 +95,9 @@ function CellarRacks() {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await fetch('/api/racks', {
+      const res = await apiFetch('/api/racks', {
         method: 'POST',
-        headers: { ...auth(), 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cellar: id, ...newRack })
       });
       const data = await res.json();
@@ -118,7 +117,7 @@ function CellarRacks() {
   // --- delete rack ---
   const handleDeleteRack = async (rackId) => {
     if (!window.confirm('Delete this rack and all its slot assignments?')) return;
-    const res = await fetch(`/api/racks/${rackId}`, { method: 'DELETE', headers: auth() });
+    const res = await apiFetch(`/api/racks/${rackId}`, { method: 'DELETE' });
     if (res.ok) {
       const remaining = racks.filter(r => r._id !== rackId);
       setRacks(remaining);
@@ -130,9 +129,9 @@ function CellarRacks() {
 
   // --- assign bottle to slot ---
   const handleAssign = async (rackId, position, bottleId) => {
-    const res = await fetch(`/api/racks/${rackId}/slots/${position}`, {
+    const res = await apiFetch(`/api/racks/${rackId}/slots/${position}`, {
       method: 'PUT',
-      headers: { ...auth(), 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ bottleId })
     });
     const data = await res.json();
@@ -146,9 +145,8 @@ function CellarRacks() {
 
   // --- remove bottle from slot (keep bottle in cellar) ---
   const handleRemoveFromRack = async (rackId, position) => {
-    const res = await fetch(`/api/racks/${rackId}/slots/${position}`, {
-      method: 'DELETE',
-      headers: auth()
+    const res = await apiFetch(`/api/racks/${rackId}/slots/${position}`, {
+      method: 'DELETE'
     });
     const data = await res.json();
     if (res.ok) {
@@ -160,9 +158,9 @@ function CellarRacks() {
   // --- soft-remove bottle via the shared consume endpoint ---
   const handleConsumeSubmit = async (reason, note, rating) => {
     const { bottleId } = consumeModal;
-    const res = await fetch(`/api/bottles/${bottleId}/consume`, {
+    const res = await apiFetch(`/api/bottles/${bottleId}/consume`, {
       method: 'POST',
-      headers: { ...auth(), 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reason, note, rating })
     });
     const data = await res.json();

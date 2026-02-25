@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const userSchema = new mongoose.Schema({
   username: {
@@ -21,7 +22,10 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: [true, 'Password is required'],
-    minlength: [12, 'Password must be at least 12 characters']
+    validate: {
+      validator: (v) => /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z\d]).{12,}$/.test(v),
+      message: 'Password must be at least 12 characters and include an uppercase letter, lowercase letter, number, and special character'
+    }
   },
   roles: {
     type: [String],
@@ -44,6 +48,10 @@ const userSchema = new mongoose.Schema({
       uppercase: true,
       trim: true
     }
+  },
+  refreshTokenHash: {
+    type: String,
+    default: null
   },
   createdAt: {
     type: Date,
@@ -72,10 +80,23 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Remove password from JSON responses
+// Store a hashed refresh token
+userSchema.methods.setRefreshToken = function(token) {
+  this.refreshTokenHash = crypto.createHash('sha256').update(token).digest('hex');
+};
+
+// Validate a refresh token against the stored hash
+userSchema.methods.validateRefreshToken = function(token) {
+  if (!this.refreshTokenHash) return false;
+  const hash = crypto.createHash('sha256').update(token).digest('hex');
+  return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(this.refreshTokenHash));
+};
+
+// Remove sensitive fields from JSON responses
 userSchema.methods.toJSON = function() {
   const obj = this.toObject();
   delete obj.password;
+  delete obj.refreshTokenHash;
   return obj;
 };
 

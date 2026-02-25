@@ -45,7 +45,7 @@ function RoleCheckboxes({ userId, currentRoles = [], disabled, onChange }) {
 }
 
 function AdminUsers() {
-  const { token } = useAuth();
+  const { apiFetch } = useAuth();
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -67,9 +67,7 @@ function AdminUsers() {
       if (filters.plan)   params.set('plan', filters.plan);
       if (filters.role)   params.set('role', filters.role);
 
-      const res = await fetch(`/api/admin/users?${params}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await apiFetch(`/api/admin/users?${params}`);
       const data = await res.json();
       if (res.ok) {
         setUsers(data.users);
@@ -82,7 +80,7 @@ function AdminUsers() {
     } finally {
       setLoading(false);
     }
-  }, [token, filters, offset]);
+  }, [apiFetch, filters, offset]);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
@@ -102,9 +100,9 @@ function AdminUsers() {
   async function changePlan(userId, newPlan) {
     setUpdating(prev => ({ ...prev, [userId + '_plan']: true }));
     try {
-      const res = await fetch(`/api/admin/users/${userId}/plan`, {
+      const res = await apiFetch(`/api/admin/users/${userId}/plan`, {
         method: 'PATCH',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan: newPlan })
       });
       const data = await res.json();
@@ -123,9 +121,9 @@ function AdminUsers() {
   async function changeRoles(userId, newRoles) {
     setUpdating(prev => ({ ...prev, [userId + '_roles']: true }));
     try {
-      const res = await fetch(`/api/admin/users/${userId}/roles`, {
+      const res = await apiFetch(`/api/admin/users/${userId}/roles`, {
         method: 'PATCH',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ roles: newRoles })
       });
       const data = await res.json();

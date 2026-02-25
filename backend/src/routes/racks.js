@@ -123,6 +123,9 @@ router.put('/:id/slots/:position', async (req, res) => {
 
     res.json({ rack });
   } catch (err) {
+    if (err.name === 'VersionError') {
+      return res.status(409).json({ error: 'This rack was modified by another request. Please refresh and try again.' });
+    }
     console.error('Assign slot error:', err);
     res.status(500).json({ error: 'Failed to assign slot' });
   }

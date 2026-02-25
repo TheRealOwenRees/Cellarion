@@ -42,7 +42,7 @@ function WineCardImage({ wine }) {
 }
 
 function Wines() {
-  const { token, user } = useAuth();
+  const { apiFetch, user } = useAuth();
   const isPrivileged = user?.roles?.includes('admin') || user?.roles?.includes('somm');
 
   const [wines, setWines] = useState([]);
@@ -70,9 +70,7 @@ function Wines() {
       params.append('sort', filters.sort);
       params.append('limit', '50');
 
-      const res = await fetch(`/api/wines?${params}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await apiFetch(`/api/wines?${params}`);
       const data = await res.json();
       if (res.ok) {
         setWines(data.wines);

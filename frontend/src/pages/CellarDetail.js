@@ -8,7 +8,7 @@ import './CellarDetail.css';
 
 function CellarDetail() {
   const { id } = useParams();
-  const { token } = useAuth();
+  const { apiFetch } = useAuth();
   const navigate = useNavigate();
   const [cellar, setCellar] = useState(null);
   const [bottles, setBottles] = useState([]);
@@ -35,7 +35,6 @@ function CellarDetail() {
     fetchRacks();
   }, [id, token, filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const auth = () => ({ 'Authorization': `Bearer ${token}` });
 
   const fetchCellarData = async () => {
     try {
@@ -43,7 +42,7 @@ function CellarDetail() {
       Object.keys(filters).forEach(key => {
         if (filters[key]) params.append(key, filters[key]);
       });
-      const res = await fetch(`/api/cellars/${id}?${params}`, { headers: auth() });
+      const res = await apiFetch(`/api/cellars/${id}?${params}`);
       const data = await res.json();
       if (res.ok) {
         setCellar(data.cellar);
@@ -60,7 +59,7 @@ function CellarDetail() {
 
   const fetchStatistics = async () => {
     try {
-      const res = await fetch(`/api/cellars/${id}/statistics`, { headers: auth() });
+      const res = await apiFetch(`/api/cellars/${id}/statistics`);
       const data = await res.json();
       if (res.ok) setStatistics(data.statistics);
     } catch {}
@@ -68,7 +67,7 @@ function CellarDetail() {
 
   const fetchRacks = async () => {
     try {
-      const res = await fetch(`/api/racks?cellar=${id}`, { headers: auth() });
+      const res = await apiFetch(`/api/racks?cellar=${id}`);
       const data = await res.json();
       if (res.ok) {
         const map = new Map();
@@ -318,7 +317,6 @@ function CellarDetail() {
         <ShareCellarModal
           cellarId={id}
           cellarName={cellar.name}
-          token={token}
           onClose={() => setShowShareModal(false)}
         />
       )}
@@ -326,7 +324,6 @@ function CellarDetail() {
       {showEditModal && (
         <EditCellarModal
           cellar={cellar}
-          token={token}
           onSaved={updated => { setCellar(updated); setShowEditModal(false); }}
           onClose={() => setShowEditModal(false)}
         />
@@ -336,7 +333,6 @@ function CellarDetail() {
         <ColorPickerModal
           currentColor={cellar.userColor}
           cellarId={id}
-          token={token}
           onSaved={userColor => { setCellar(c => ({ ...c, userColor })); setShowColorPicker(false); }}
           onClose={() => setShowColorPicker(false)}
         />
@@ -345,7 +341,6 @@ function CellarDetail() {
       {showDeleteModal && (
         <DeleteCellarModal
           cellar={cellar}
-          token={token}
           onDeleted={() => navigate('/cellars')}
           onClose={() => setShowDeleteModal(false)}
         />
@@ -355,7 +350,8 @@ function CellarDetail() {
 }
 
 // ── Edit cellar modal (owner only — name & description) ──
-function EditCellarModal({ cellar, token, onSaved, onClose }) {
+function EditCellarModal({ cellar, onSaved, onClose }) {
+  const { apiFetch } = useAuth();
   const [form, setForm] = useState({
     name: cellar.name,
     description: cellar.description || '',
@@ -368,12 +364,9 @@ function EditCellarModal({ cellar, token, onSaved, onClose }) {
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/cellars/${cellar._id}`, {
+      const res = await apiFetch(`/api/cellars/${cellar._id}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form)
       });
       const data = await res.json();
@@ -425,16 +418,17 @@ function EditCellarModal({ cellar, token, onSaved, onClose }) {
 }
 
 // ── Personal color picker modal (any user) ──
-function ColorPickerModal({ currentColor, cellarId, token, onSaved, onClose }) {
+function ColorPickerModal({ currentColor, cellarId, onSaved, onClose }) {
+  const { apiFetch } = useAuth();
   const [color, setColor] = useState(currentColor || null);
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`/api/cellars/${cellarId}/color`, {
+      const res = await apiFetch(`/api/cellars/${cellarId}/color`, {
         method: 'PATCH',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ color })
       });
       if (res.ok) onSaved(color);
@@ -460,7 +454,8 @@ function ColorPickerModal({ currentColor, cellarId, token, onSaved, onClose }) {
 }
 
 // ── Delete cellar modal (owner only — requires typing cellar name to confirm) ──
-function DeleteCellarModal({ cellar, token, onDeleted, onClose }) {
+function DeleteCellarModal({ cellar, onDeleted, onClose }) {
+  const { apiFetch } = useAuth();
   const [typed, setTyped]   = useState('');
   const [deleting, setDeleting] = useState(false);
   const [error, setError]   = useState(null);
@@ -471,9 +466,8 @@ function DeleteCellarModal({ cellar, token, onDeleted, onClose }) {
     setDeleting(true);
     setError(null);
     try {
-      const res = await fetch(`/api/cellars/${cellar._id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+      const res = await apiFetch(`/api/cellars/${cellar._id}`, {
+        method: 'DELETE'
       });
       const data = await res.json();
       if (res.ok) {

@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import './AdminRequests.css';
 
 function AdminRequests() {
-  const { token } = useAuth();
+  const { apiFetch } = useAuth();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('pending');
@@ -22,15 +22,13 @@ function AdminRequests() {
   useEffect(() => {
     fetchRequests();
     fetchCountries();
-  }, [statusFilter, token]);
+  }, [statusFilter, apiFetch]);
 
   const fetchRequests = async () => {
     setLoading(true);
     try {
       const params = statusFilter ? `?status=${statusFilter}` : '';
-      const res = await fetch(`/api/admin/wine-requests${params}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await apiFetch(`/api/admin/wine-requests${params}`);
       const data = await res.json();
       if (res.ok) setRequests(data.requests);
     } catch (err) {
@@ -42,9 +40,7 @@ function AdminRequests() {
 
   const fetchCountries = async () => {
     try {
-      const res = await fetch('/api/admin/taxonomy/countries', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await apiFetch('/api/admin/taxonomy/countries');
       const data = await res.json();
       if (res.ok) setCountries(data.countries);
     } catch (err) {
@@ -55,9 +51,8 @@ function AdminRequests() {
   const checkDuplicates = async (name, producer) => {
     if (!name || !producer) return;
     try {
-      const res = await fetch(
-        `/api/admin/wines/duplicates?name=${encodeURIComponent(name)}&producer=${encodeURIComponent(producer)}&threshold=0.75`,
-        { headers: { 'Authorization': `Bearer ${token}` } }
+      const res = await apiFetch(
+        `/api/admin/wines/duplicates?name=${encodeURIComponent(name)}&producer=${encodeURIComponent(producer)}&threshold=0.75`
       );
       const data = await res.json();
       if (res.ok) setDuplicates(data.candidates);
@@ -97,12 +92,9 @@ function AdminRequests() {
         body.wineDefinitionId = resolveData.wineDefinitionId;
       }
 
-      const res = await fetch(`/api/admin/wine-requests/${selected._id}/resolve`, {
+      const res = await apiFetch(`/api/admin/wine-requests/${selected._id}/resolve`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
 
@@ -129,12 +121,9 @@ function AdminRequests() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/wine-requests/${selected._id}/reject`, {
+      const res = await apiFetch(`/api/admin/wine-requests/${selected._id}/reject`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminNotes: notes })
       });
 

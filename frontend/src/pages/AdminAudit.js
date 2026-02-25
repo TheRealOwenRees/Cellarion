@@ -44,7 +44,7 @@ const ACTION_OPTIONS = [
 ];
 
 function AdminAudit() {
-  const { token } = useAuth();
+  const { apiFetch } = useAuth();
   const [logs, setLogs] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -67,9 +67,7 @@ function AdminAudit() {
       if (filters.from)   params.set('from', filters.from);
       if (filters.to)     params.set('to', filters.to);
 
-      const res = await fetch(`/api/admin/audit?${params}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await apiFetch(`/api/admin/audit?${params}`);
       const data = await res.json();
       if (res.ok) {
         setLogs(data.logs);
@@ -82,7 +80,7 @@ function AdminAudit() {
     } finally {
       setLoading(false);
     }
-  }, [token, page, filters]);
+  }, [apiFetch, page, filters]);
 
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
 

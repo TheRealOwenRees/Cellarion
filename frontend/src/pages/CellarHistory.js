@@ -12,7 +12,7 @@ const REASON_CONFIG = {
 
 function CellarHistory() {
   const { id } = useParams();
-  const { token } = useAuth();
+  const { apiFetch } = useAuth();
   const [cellar, setCellar] = useState(null);
   const [grouped, setGrouped] = useState({});
   const [loading, setLoading] = useState(true);
@@ -21,13 +21,11 @@ function CellarHistory() {
 
   useEffect(() => {
     fetchHistory();
-  }, [id, token]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [id, apiFetch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch(`/api/cellars/${id}/history`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await apiFetch(`/api/cellars/${id}/history`);
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Failed to load history'); return; }
 

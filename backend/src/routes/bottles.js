@@ -8,6 +8,9 @@ const WineVintageProfile = require('../models/WineVintageProfile');
 const { getCellarRole } = require('../utils/cellarAccess');
 const { logAudit } = require('../services/audit');
 
+// Strip HTML tags from user-supplied text to prevent XSS in rendered output
+const stripHtml = (str) => (str ? str.replace(/<[^>]*>/g, '').trim() : str);
+
 const router = express.Router();
 
 // All routes require authentication
@@ -60,10 +63,10 @@ router.post('/', async (req, res) => {
       currency: currency || 'USD',
       bottleSize: bottleSize || '750ml',
       purchaseDate,
-      purchaseLocation,
+      purchaseLocation: stripHtml(purchaseLocation),
       purchaseUrl,
-      location,
-      notes,
+      location: stripHtml(location),
+      notes: stripHtml(notes),
       rating,
       drinkFrom,
       drinkBefore
@@ -162,11 +165,13 @@ router.put('/:id', async (req, res) => {
       return String(v);
     };
 
+    const htmlFields = new Set(['purchaseLocation', 'location', 'notes']);
     const changes = {};
     updateFields.forEach(field => {
       if (req.body[field] !== undefined) {
         const oldVal = bottle[field];
-        const newVal = req.body[field];
+        const rawVal = req.body[field];
+        const newVal = htmlFields.has(field) ? stripHtml(rawVal) : rawVal;
         if (norm(oldVal) !== norm(newVal)) {
           changes[field] = { from: oldVal ?? null, to: newVal !== '' ? newVal : null };
         }
@@ -189,6 +194,9 @@ router.put('/:id', async (req, res) => {
 
     res.json({ bottle });
   } catch (error) {
+    if (error.name === 'VersionError') {
+      return res.status(409).json({ error: 'This bottle was modified by another request. Please refresh and try again.' });
+    }
     console.error('Update bottle error:', error);
     res.status(500).json({ error: 'Failed to update bottle' });
   }
@@ -221,7 +229,7 @@ router.post('/:id/consume', async (req, res) => {
     bottle.status = reason;
     bottle.consumedAt = new Date();
     bottle.consumedReason = reason;
-    if (note) bottle.consumedNote = note.trim();
+    if (note) bottle.consumedNote = stripHtml(note);
     if (rating) bottle.consumedRating = parseInt(rating);
 
     await bottle.save();

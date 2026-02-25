@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import ImageCarousel from './ImageCarousel';
 
 function ImageGallery({ bottleId, wineDefinitionId, size = 'medium', onEmpty }) {
-  const { token } = useAuth();
+  const { apiFetch } = useAuth();
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -21,9 +21,7 @@ function ImageGallery({ bottleId, wineDefinitionId, size = 'medium', onEmpty }) 
         ? `/api/images/bottle/${bottleId}`
         : `/api/images/wine/${wineDefinitionId}`;
 
-      const res = await fetch(endpoint, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await apiFetch(endpoint);
       const data = await res.json();
       if (res.ok) {
         setImages(data.images);

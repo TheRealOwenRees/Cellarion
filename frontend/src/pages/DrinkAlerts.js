@@ -13,7 +13,7 @@ const STATUS_CONFIG = {
 
 function DrinkAlerts() {
   const { id } = useParams();
-  const { token } = useAuth();
+  const { apiFetch } = useAuth();
   const [cellar, setCellar] = useState(null);
   const [grouped, setGrouped] = useState({});
   const [loading, setLoading] = useState(true);
@@ -21,13 +21,11 @@ function DrinkAlerts() {
 
   useEffect(() => {
     fetchBottles();
-  }, [id, token]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [id, apiFetch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchBottles = async () => {
     try {
-      const res = await fetch(`/api/cellars/${id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await apiFetch(`/api/cellars/${id}`);
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Failed to load cellar'); return; }
 

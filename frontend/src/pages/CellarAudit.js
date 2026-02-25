@@ -68,7 +68,7 @@ function formatDetail(action, detail) {
 
 function CellarAudit() {
   const { id } = useParams();
-  const { token } = useAuth();
+  const { apiFetch } = useAuth();
   const [logs, setLogs] = useState([]);
   const [cellarName, setCellarName] = useState('');
   const [cellarColor, setCellarColor] = useState(null);
@@ -76,12 +76,10 @@ function CellarAudit() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const auth = { 'Authorization': `Bearer ${token}` };
-
     // Fetch cellar + audit in parallel
     Promise.all([
-      fetch(`/api/cellars/${id}`, { headers: auth }).then(r => r.json()),
-      fetch(`/api/cellars/${id}/audit`, { headers: auth }).then(r => r.json())
+      apiFetch(`/api/cellars/${id}`).then(r => r.json()),
+      apiFetch(`/api/cellars/${id}/audit`).then(r => r.json())
     ]).then(([cellarData, auditData]) => {
       if (cellarData.cellar) {
         setCellarName(cellarData.cellar.name);
@@ -91,7 +89,7 @@ function CellarAudit() {
       if (auditData.error)   setError(auditData.error);
     }).catch(() => setError('Network error'))
       .finally(() => setLoading(false));
-  }, [id, token]);
+  }, [id, apiFetch]);
 
   const h1Style = cellarColor
     ? { borderLeft: `4px solid ${cellarColor}`, paddingLeft: '0.75rem' }
