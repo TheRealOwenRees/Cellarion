@@ -1,4 +1,13 @@
 require('dotenv').config();
+
+// Validate required environment variables before any setup
+const requiredEnv = ['JWT_SECRET', 'MEILI_MASTER_KEY'];
+const missingEnv = requiredEnv.filter(key => !process.env[key]);
+if (missingEnv.length > 0) {
+  console.error(`FATAL: Missing required environment variables: ${missingEnv.join(', ')}`);
+  process.exit(1);
+}
+
 const fs = require('fs');
 const app = require('./src/app');
 const connectDB = require('./src/config/db');

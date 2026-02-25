@@ -16,10 +16,36 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Wine name and source URL are required' });
     }
 
-    // Validate URL format
-    const urlPattern = /^https?:\/\/.+/;
-    if (!urlPattern.test(sourceUrl)) {
-      return res.status(400).json({ error: 'Please provide a valid URL (must start with http:// or https://)' });
+    // Validate URL: max length, valid format, public hosts only
+    if (sourceUrl.length > 2048) {
+      return res.status(400).json({ error: 'URL is too long (max 2048 characters)' });
+    }
+
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(sourceUrl);
+    } catch {
+      return res.status(400).json({ error: 'Please provide a valid URL' });
+    }
+
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      return res.status(400).json({ error: 'URL must use http or https protocol' });
+    }
+
+    // Block private/internal hostnames (SSRF prevention)
+    const hostname = parsedUrl.hostname.toLowerCase();
+    const privatePatterns = [
+      /^localhost$/,
+      /^127\.\d+\.\d+\.\d+$/,
+      /^10\.\d+\.\d+\.\d+$/,
+      /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/,
+      /^192\.168\.\d+\.\d+$/,
+      /^169\.254\.\d+\.\d+$/,
+      /^0\.0\.0\.0$/,
+      /^\[?::1?\]?$/
+    ];
+    if (privatePatterns.some(p => p.test(hostname))) {
+      return res.status(400).json({ error: 'URLs pointing to private/internal addresses are not allowed' });
     }
 
     const wineRequest = new WineRequest({
