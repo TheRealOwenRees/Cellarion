@@ -115,7 +115,7 @@ function AppRoutes() {
       <Route
         path="/wines"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireAdmin>
             <Layout><Wines /></Layout>
           </ProtectedRoute>
         }

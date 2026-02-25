@@ -59,13 +59,15 @@ function Layout({ children }) {
             >
               My Cellars
             </Link>
-            <Link
-              to="/wines"
-              className={isActive('/wines') ? 'active' : ''}
-              onClick={closeMenu}
-            >
-              Wine Registry
-            </Link>
+            {roles.includes('admin') && (
+              <Link
+                to="/wines"
+                className={isActive('/wines') ? 'active' : ''}
+                onClick={closeMenu}
+              >
+                Wine Registry
+              </Link>
+            )}
             <Link
               to="/wine-requests"
               className={isActive('/wine-requests') ? 'active' : ''}
