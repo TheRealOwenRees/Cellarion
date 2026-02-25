@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import './WineRequests.css';
 
 function WineRequests() {
-  const { token } = useAuth();
+  const { apiFetch } = useAuth();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -15,13 +15,11 @@ function WineRequests() {
 
   useEffect(() => {
     fetchRequests();
-  }, [token]);
+  }, [apiFetch]);
 
   const fetchRequests = async () => {
     try {
-      const res = await fetch('/api/wine-requests', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await apiFetch('/api/wine-requests');
       const data = await res.json();
       if (res.ok) {
         setRequests(data.requests);
@@ -36,12 +34,9 @@ function WineRequests() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/wine-requests', {
+      const res = await apiFetch('/api/wine-requests', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
       if (res.ok) {

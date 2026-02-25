@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import './ImageUpload.css';
 
 function ImageUpload({ bottleId, wineDefinitionId, onUploadComplete }) {
-  const { token } = useAuth();
+  const { apiFetch } = useAuth();
   const [uploading, setUploading] = useState(false);
   const [images, setImages] = useState([]); // { id, originalSrc, processedSrc, status }
   const [error, setError] = useState(null);
@@ -24,9 +24,7 @@ function ImageUpload({ bottleId, wineDefinitionId, onUploadComplete }) {
     const poll = async () => {
       attempts++;
       try {
-        const res = await fetch(`/api/images/${imageId}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+        const res = await apiFetch(`/api/images/${imageId}`);
         const data = await res.json();
         if (!res.ok) return;
 
@@ -62,7 +60,7 @@ function ImageUpload({ bottleId, wineDefinitionId, onUploadComplete }) {
     };
 
     pollTimers.current[imageId] = setTimeout(poll, 2000);
-  }, [token]);
+  }, [apiFetch]);
 
   // Cleanup poll timers on unmount
   useEffect(() => {
@@ -85,9 +83,8 @@ function ImageUpload({ bottleId, wineDefinitionId, onUploadComplete }) {
     if (wineDefinitionId) formData.append('wineDefinitionId', wineDefinitionId);
 
     try {
-      const res = await fetch('/api/images/upload', {
+      const res = await apiFetch('/api/images/upload', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
       const data = await res.json();
@@ -130,9 +127,8 @@ function ImageUpload({ bottleId, wineDefinitionId, onUploadComplete }) {
       p.id === imageId ? { ...p, status: 'processing' } : p
     ));
     try {
-      await fetch(`/api/images/${imageId}/retry`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+      await apiFetch(`/api/images/${imageId}/retry`, {
+        method: 'POST'
       });
       pollImage(imageId);
     } catch (err) {

@@ -27,7 +27,7 @@ function getMaturityStatus(profile) {
 
 function BottleDetail() {
   const { id: cellarId, bottleId } = useParams();
-  const { token, user } = useAuth();
+  const { apiFetch, user } = useAuth();
   const navigate = useNavigate();
   const [bottle, setBottle] = useState(null);
   const [userRole, setUserRole] = useState(null);
@@ -41,7 +41,6 @@ function BottleDetail() {
   const [editing, setEditing] = useState(false);
   const [consumeOpen, setConsumeOpen] = useState(false);
 
-  const auth = () => ({ 'Authorization': `Bearer ${token}` });
 
   useEffect(() => {
     fetchBottle();
@@ -50,7 +49,7 @@ function BottleDetail() {
 
   const fetchBottle = async () => {
     try {
-      const res = await fetch(`/api/bottles/${bottleId}`, { headers: auth() });
+      const res = await apiFetch(`/api/bottles/${bottleId}`);
       const data = await res.json();
       if (res.ok) {
         setBottle(data.bottle);
@@ -76,9 +75,8 @@ function BottleDetail() {
 
   const fetchVintageProfile = async (wineId, vintage) => {
     try {
-      const res = await fetch(
-        `/api/somm/maturity/lookup?wine=${wineId}&vintage=${vintage}`,
-        { headers: auth() }
+      const res = await apiFetch(
+        `/api/somm/maturity/lookup?wine=${wineId}&vintage=${vintage}`
       );
       const data = await res.json();
       if (res.ok) setVintageProfile(data.profile);
@@ -89,9 +87,8 @@ function BottleDetail() {
 
   const fetchPriceHistory = async (wineId, vintage) => {
     try {
-      const res = await fetch(
-        `/api/somm/prices/lookup?wine=${wineId}&vintage=${vintage}`,
-        { headers: auth() }
+      const res = await apiFetch(
+        `/api/somm/prices/lookup?wine=${wineId}&vintage=${vintage}`
       );
       const data = await res.json();
       if (res.ok) setPriceHistory(data.history || []);
@@ -103,7 +100,7 @@ function BottleDetail() {
 
   const fetchRackInfo = async () => {
     try {
-      const res = await fetch(`/api/racks?cellar=${cellarId}`, { headers: auth() });
+      const res = await apiFetch(`/api/racks?cellar=${cellarId}`);
       const data = await res.json();
       if (res.ok) {
         for (const rack of data.racks) {
@@ -126,9 +123,9 @@ function BottleDetail() {
 
   const handleConsumeConfirm = async (reason, note, rating) => {
     try {
-      const res = await fetch(`/api/bottles/${bottleId}/consume`, {
+      const res = await apiFetch(`/api/bottles/${bottleId}/consume`, {
         method: 'POST',
-        headers: { ...auth(), 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason, note, rating })
       });
       const data = await res.json();
@@ -184,7 +181,6 @@ function BottleDetail() {
       {editing ? (
         <EditForm
           bottle={bottle}
-          token={token}
           onSaved={handleBottleUpdated}
           onCancel={() => setEditing(false)}
         />
@@ -381,7 +377,8 @@ function ViewDetails({ bottle, rackInfo, cellarId, drinkStatus, vintageProfile, 
 }
 
 // ── Edit form ──
-function EditForm({ bottle, token, onSaved, onCancel }) {
+function EditForm({ bottle, onSaved, onCancel }) {
+  const { apiFetch } = useAuth();
   const [form, setForm] = useState({
     vintage:          bottle.vintage || '',
     rating:           bottle.rating  || '',
@@ -405,9 +402,9 @@ function EditForm({ bottle, token, onSaved, onCancel }) {
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/bottles/${bottle._id}`, {
+      const res = await apiFetch(`/api/bottles/${bottle._id}`, {
         method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
           price:  form.price  ? parseFloat(form.price)  : null,

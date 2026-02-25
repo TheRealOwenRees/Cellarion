@@ -111,7 +111,7 @@ const bottleSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   }
-});
+}, { optimisticConcurrency: true });
 
 // Compound indexes for efficient queries
 bottleSchema.index({ user: 1, cellar: 1, wineDefinition: 1 });

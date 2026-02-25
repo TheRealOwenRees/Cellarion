@@ -19,7 +19,7 @@ function timeAgo(dateStr) {
 }
 
 function SommPrices() {
-  const { token, user } = useAuth();
+  const { apiFetch, user } = useAuth();
   const [queue, setQueue]     = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
@@ -29,9 +29,7 @@ function SommPrices() {
     setLoading(true);
     setError(null);
     try {
-      const res  = await fetch('/api/somm/prices/queue', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res  = await apiFetch('/api/somm/prices/queue');
       const data = await res.json();
       if (res.ok) {
         setQueue(data.queue);
@@ -44,7 +42,7 @@ function SommPrices() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [apiFetch]);
 
   useEffect(() => { fetchQueue(); }, [fetchQueue]);
 
@@ -78,7 +76,6 @@ function SommPrices() {
               <PriceCard
                 key={`${item.wineDefinition?._id}:${item.vintage}`}
                 item={item}
-                token={token}
                 defaultCurrency={user?.preferences?.currency || 'USD'}
                 userCurrency={user?.preferences?.currency || 'USD'}
                 rates={rates}
@@ -93,7 +90,8 @@ function SommPrices() {
 }
 
 // ── Individual price card ──────────────────────────────────────────────────────
-function PriceCard({ item, token, defaultCurrency, userCurrency, rates, onSaved }) {
+function PriceCard({ item, defaultCurrency, userCurrency, rates, onSaved }) {
+  const { apiFetch } = useAuth();
   const wine  = item.wineDefinition;
   const isNew = !item.latestPrice;
 
@@ -115,9 +113,9 @@ function PriceCard({ item, token, defaultCurrency, userCurrency, rates, onSaved 
     setSaving(true);
     setErr(null);
     try {
-      const res = await fetch('/api/somm/prices', {
+      const res = await apiFetch('/api/somm/prices', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           wineDefinition: wine?._id,
           vintage:  item.vintage,

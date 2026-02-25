@@ -37,7 +37,7 @@ function yearsFromVintage(vintageInt, from, until) {
 }
 
 function SommMaturity() {
-  const { token } = useAuth();
+  const { apiFetch } = useAuth();
   const [profiles, setProfiles] = useState([]);
   const [tab, setTab] = useState('pending');
   const [loading, setLoading] = useState(true);
@@ -47,9 +47,7 @@ function SommMaturity() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/somm/maturity?status=${tab}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await apiFetch(`/api/somm/maturity?status=${tab}`);
       const data = await res.json();
       if (res.ok) setProfiles(data.profiles);
       else setError(data.error || 'Failed to load profiles');
@@ -58,7 +56,7 @@ function SommMaturity() {
     } finally {
       setLoading(false);
     }
-  }, [token, tab]);
+  }, [apiFetch, tab]);
 
   useEffect(() => { fetchProfiles(); }, [fetchProfiles]);
 
@@ -97,7 +95,6 @@ function SommMaturity() {
             <ProfileCard
               key={profile._id}
               profile={profile}
-              token={token}
               isPending={tab === 'pending'}
               onSaved={handleSaved}
               onReset={handleReset}
@@ -110,7 +107,8 @@ function SommMaturity() {
 }
 
 // ── Individual profile card with inline form ──────────────────────────────────
-function ProfileCard({ profile, token, isPending, onSaved, onReset }) {
+function ProfileCard({ profile, isPending, onSaved, onReset }) {
+  const { apiFetch } = useAuth();
   const wine       = profile.wineDefinition;
   const vintageInt = parseInt(profile.vintage);
 
@@ -141,9 +139,9 @@ function ProfileCard({ profile, token, isPending, onSaved, onReset }) {
         body[f] = form[f] ? parseInt(form[f]) : null;
       });
 
-      const res = await fetch(`/api/somm/maturity/${profile._id}`, {
+      const res = await apiFetch(`/api/somm/maturity/${profile._id}`, {
         method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
       const data = await res.json();
@@ -160,9 +158,8 @@ function ProfileCard({ profile, token, isPending, onSaved, onReset }) {
     if (!window.confirm('Reset this profile back to pending?')) return;
     setResetting(true);
     try {
-      const res = await fetch(`/api/somm/maturity/${profile._id}/reset`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+      const res = await apiFetch(`/api/somm/maturity/${profile._id}/reset`, {
+        method: 'DELETE'
       });
       const data = await res.json();
       if (res.ok) onReset(data.profile);

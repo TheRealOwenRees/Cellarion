@@ -8,7 +8,7 @@ import './AddBottle.css';
 
 function AddBottle() {
   const { id: cellarId } = useParams();
-  const { token, user } = useAuth();
+  const { apiFetch, user } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(1); // 1 = select wine, 2 = enter details
   const [wines, setWines] = useState([]);
@@ -43,9 +43,7 @@ function AddBottle() {
   const searchWines = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/wines?search=${encodeURIComponent(search)}&limit=10`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await apiFetch(`/api/wines?search=${encodeURIComponent(search)}&limit=10`);
       const data = await res.json();
       if (res.ok) {
         setWines(data.wines);
@@ -80,12 +78,9 @@ function AddBottle() {
       // Create N individual bottle records
       const createdBottles = [];
       for (let i = 0; i < numBottles; i++) {
-        const res = await fetch('/api/bottles', {
+        const res = await apiFetch('/api/bottles', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
 
@@ -99,12 +94,9 @@ function AddBottle() {
 
       // Link uploaded images to the first bottle
       if (uploadedImages.length > 0 && createdBottles.length > 0) {
-        fetch('/api/images/link-to-bottle', {
+        apiFetch('/api/images/link-to-bottle', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             bottleId: createdBottles[0]._id,
             imageIds: uploadedImages.map(img => img._id)

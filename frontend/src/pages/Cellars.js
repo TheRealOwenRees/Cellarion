@@ -7,7 +7,7 @@ import CellarColorPicker from '../components/CellarColorPicker';
 import './Cellars.css';
 
 function Cellars() {
-  const { token } = useAuth();
+  const { apiFetch } = useAuth();
   const { plan, config } = usePlan();
   const [cellars, setCellars] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,13 +19,11 @@ function Cellars() {
 
   useEffect(() => {
     fetchCellars();
-  }, [token]);
+  }, [apiFetch]);
 
   const fetchCellars = async () => {
     try {
-      const res = await fetch('/api/cellars', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await apiFetch('/api/cellars');
       const data = await res.json();
       if (res.ok) {
         setCellars(data.cellars);
@@ -50,12 +48,9 @@ function Cellars() {
     setLimitError(null);
 
     try {
-      const res = await fetch('/api/cellars', {
+      const res = await apiFetch('/api/cellars', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newCellar)
       });
 

@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import './AdminTaxonomy.css';
 
 function AdminTaxonomy() {
-  const { token } = useAuth();
+  const { apiFetch } = useAuth();
   const [activeTab, setActiveTab] = useState('countries');
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,15 +22,13 @@ function AdminTaxonomy() {
     fetchItems();
     setShowForm(false);
     setFormData({});
-  }, [activeTab, token]);
+  }, [activeTab, apiFetch]);
 
   // Pre-load countries for the region form dropdown
   useEffect(() => {
     const fetchCountries = async () => {
       try {
-        const res = await fetch('/api/admin/taxonomy/countries', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+        const res = await apiFetch('/api/admin/taxonomy/countries');
         const data = await res.json();
         if (res.ok) setAllCountries(data.countries || []);
       } catch (err) {
@@ -38,15 +36,13 @@ function AdminTaxonomy() {
       }
     };
     fetchCountries();
-  }, [token]);
+  }, [apiFetch]);
 
   const fetchItems = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(endpoints[activeTab], {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await apiFetch(endpoints[activeTab]);
       const data = await res.json();
       if (res.ok) {
         setItems(data.countries || data.regions || data.grapes || []);
@@ -62,12 +58,9 @@ function AdminTaxonomy() {
     e.preventDefault();
     setError(null);
     try {
-      const res = await fetch(endpoints[activeTab], {
+      const res = await apiFetch(endpoints[activeTab], {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
       const data = await res.json();
@@ -86,9 +79,8 @@ function AdminTaxonomy() {
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this item?')) return;
     try {
-      const res = await fetch(`${endpoints[activeTab]}/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+      const res = await apiFetch(`${endpoints[activeTab]}/${id}`, {
+        method: 'DELETE'
       });
       const data = await res.json();
       if (res.ok) {

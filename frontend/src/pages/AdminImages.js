@@ -5,7 +5,7 @@ import './AdminImages.css';
 const API_URL = process.env.REACT_APP_API_URL || '';
 
 function AdminImages() {
-  const { token } = useAuth();
+  const { apiFetch } = useAuth();
   const [images, setImages] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -20,7 +20,7 @@ function AdminImages() {
 
   useEffect(() => {
     fetchImages();
-  }, [statusFilter, page, token]);
+  }, [statusFilter, page, apiFetch]);
 
   const fetchImages = async () => {
     setLoading(true);
@@ -28,9 +28,7 @@ function AdminImages() {
       const params = new URLSearchParams({ page, limit });
       if (statusFilter) params.append('status', statusFilter);
 
-      const res = await fetch(`/api/admin/images?${params}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await apiFetch(`/api/admin/images?${params}`);
       const data = await res.json();
       if (res.ok) {
         setImages(data.images);
@@ -48,9 +46,8 @@ function AdminImages() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/images/${selected._id}/approve`, {
-        method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}` }
+      const res = await apiFetch(`/api/admin/images/${selected._id}/approve`, {
+        method: 'PUT'
       });
       const data = await res.json();
       if (res.ok) {
@@ -71,9 +68,8 @@ function AdminImages() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/images/${selected._id}/reject`, {
-        method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}` }
+      const res = await apiFetch(`/api/admin/images/${selected._id}/reject`, {
+        method: 'PUT'
       });
       const data = await res.json();
       if (res.ok) {
@@ -99,12 +95,9 @@ function AdminImages() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/images/${selected._id}/assign-to-wine`, {
+      const res = await apiFetch(`/api/admin/images/${selected._id}/assign-to-wine`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wineDefinitionId: wineDefId })
       });
       const data = await res.json();

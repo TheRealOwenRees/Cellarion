@@ -1,5 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const User = require('../models/User');
 const { requireAuth } = require('../middleware/auth');
@@ -16,14 +17,35 @@ const authLimiter = rateLimit({
   legacyHeaders: false
 });
 
-// Generate JWT token — includes roles array and plan so middleware can check without a DB hit
-const generateToken = (user) => {
+// Generate short-lived access token (default 15 min)
+const generateAccessToken = (user) => {
   const roles = user.roles && user.roles.length > 0 ? user.roles : ['user'];
   return jwt.sign(
     { id: user._id, roles, plan: user.plan || 'free' },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    { expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '15m' }
   );
+};
+
+// Generate opaque refresh token (random bytes) and store its hash on the user
+const generateRefreshToken = () => crypto.randomBytes(64).toString('hex');
+
+// Cookie options for the httpOnly refresh token
+const refreshCookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict',
+  maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in ms
+};
+
+// Issue both tokens: access token in body, refresh token in httpOnly cookie
+const issueTokens = async (user, res) => {
+  const accessToken = generateAccessToken(user);
+  const refreshToken = generateRefreshToken();
+  user.setRefreshToken(refreshToken);
+  await user.save();
+  res.cookie('refreshToken', refreshToken, refreshCookieOptions);
+  return accessToken;
 };
 
 // POST /api/auth/register - Register new user
@@ -53,10 +75,8 @@ router.post('/register', authLimiter, async (req, res) => {
       roles: ['user']
     });
 
-    await user.save();
-
-    // Generate token
-    const token = generateToken(user);
+    // Issue tokens (saves refreshTokenHash to user doc inside)
+    const accessToken = await issueTokens(user, res);
 
     logAudit(req, 'auth.register',
       { type: 'user', id: user._id },
@@ -64,7 +84,7 @@ router.post('/register', authLimiter, async (req, res) => {
     );
 
     res.status(201).json({
-      token,
+      token: accessToken,
       user: user.toJSON()
     });
   } catch (error) {
@@ -108,8 +128,7 @@ router.post('/login', authLimiter, async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Generate token
-    const token = generateToken(user);
+    const accessToken = await issueTokens(user, res);
 
     logAudit(req, 'auth.login.success',
       { type: 'user', id: user._id },
@@ -117,12 +136,58 @@ router.post('/login', authLimiter, async (req, res) => {
     );
 
     res.json({
-      token,
+      token: accessToken,
       user: user.toJSON()
     });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// POST /api/auth/refresh - Issue new access token using httpOnly refresh token cookie
+router.post('/refresh', async (req, res) => {
+  const incomingToken = req.cookies?.refreshToken;
+  if (!incomingToken) {
+    return res.status(401).json({ error: 'No refresh token' });
+  }
+
+  try {
+    // Decode without verification to get the user ID, then validate hash in DB
+    // (Refresh tokens are opaque random bytes — not JWTs — so just look up by hash)
+    // We find the user whose stored hash matches this token
+    const tokenHash = require('crypto').createHash('sha256').update(incomingToken).digest('hex');
+    const user = await User.findOne({ refreshTokenHash: tokenHash });
+
+    if (!user) {
+      res.clearCookie('refreshToken', refreshCookieOptions);
+      return res.status(401).json({ error: 'Invalid or expired refresh token' });
+    }
+
+    // Rotate: issue new pair (invalidates the old refresh token hash)
+    const accessToken = await issueTokens(user, res);
+
+    res.json({ token: accessToken });
+  } catch (error) {
+    console.error('Refresh error:', error);
+    res.clearCookie('refreshToken', refreshCookieOptions);
+    res.status(401).json({ error: 'Invalid or expired refresh token' });
+  }
+});
+
+// POST /api/auth/logout - Invalidate refresh token
+router.post('/logout', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (user) {
+      user.refreshTokenHash = null;
+      await user.save();
+    }
+    res.clearCookie('refreshToken', refreshCookieOptions);
+    res.json({ message: 'Logged out' });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ error: 'Logout failed' });
   }
 });
 
