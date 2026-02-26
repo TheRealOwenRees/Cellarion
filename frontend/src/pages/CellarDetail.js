@@ -35,7 +35,7 @@ function CellarDetail() {
     fetchCellarData();
     fetchStatistics();
     fetchRacks();
-  }, [id, token, filters]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [id, filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   const fetchCellarData = async () => {

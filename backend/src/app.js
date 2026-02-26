@@ -24,6 +24,9 @@ const sommPricesRoute  = require('./routes/somm/prices');
 
 const app = express();
 
+// Trust first proxy — required for express-rate-limit behind Docker/nginx
+app.set('trust proxy', 1);
+
 // Security headers — explicit config for production SaaS
 app.use(helmet({
   hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
