@@ -37,11 +37,10 @@ const bottleSchema = new mongoose.Schema({
     trim: true,
     maxlength: [10, 'Currency code too long']
   },
-  // Exchange rates (USD-base) snapshot captured at the moment price was saved.
-  // Used to convert historical prices without distortion from later rate movements.
-  priceCurrencyRates: {
-    type: Map,
-    of: Number
+  // Date ('YYYY-MM-DD') when the price was last entered or confirmed.
+  // Used to look up the ExchangeRateSnapshot for time-anchored currency conversion.
+  priceSetAt: {
+    type: Date
   },
   bottleSize: {
     type: String,
