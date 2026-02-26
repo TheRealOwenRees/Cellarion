@@ -17,10 +17,13 @@ const adminWineRequestsRoute = require('./routes/admin/wineRequests');
 const adminImagesRoute = require('./routes/admin/images');
 const adminAuditRoute = require('./routes/admin/audit');
 const adminUsersRoute = require('./routes/admin/users');
+const adminSettingsRoute = require('./routes/admin/settings');
 const racksRoute = require('./routes/racks');
 const imagesRoute = require('./routes/images');
 const sommMaturityRoute = require('./routes/somm/maturity');
 const sommPricesRoute  = require('./routes/somm/prices');
+const rateLimitsConfig = require('./config/rateLimits');
+const { logAudit } = require('./services/audit');
 
 const app = express();
 
@@ -45,24 +48,30 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Global API rate limiter — 100 requests per 15 min per IP
+// Global API rate limiter — default 200 requests per 15 min per IP (admin-configurable)
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: { error: 'Too many requests, please try again later' },
+  max: () => rateLimitsConfig.get().api.max,
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  handler: (req, res) => {
+    logAudit(req, 'system.rate_limit_exceeded', {}, { limiter: 'api', limit: rateLimitsConfig.get().api.max });
+    res.status(429).json({ error: 'Too many requests, please try again later' });
+  }
 });
 app.use('/api/', apiLimiter);
 
-// Stricter limiter for write operations (POST/PUT/DELETE/PATCH)
+// Stricter limiter for write operations (POST/PUT/DELETE/PATCH) — default 60 per 15 min
 const writeLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 30,
-  message: { error: 'Too many write requests, please try again later' },
+  max: () => rateLimitsConfig.get().write.max,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS'
+  skip: (req) => req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS',
+  handler: (req, res) => {
+    logAudit(req, 'system.rate_limit_exceeded', {}, { limiter: 'write', limit: rateLimitsConfig.get().write.max });
+    res.status(429).json({ error: 'Too many write requests, please try again later' });
+  }
 });
 app.use('/api/', writeLimiter);
 
@@ -90,6 +99,7 @@ app.use('/api/admin/wine-requests', adminWineRequestsRoute);
 app.use('/api/admin/images', adminImagesRoute);
 app.use('/api/admin/audit', adminAuditRoute);
 app.use('/api/admin/users', adminUsersRoute);
+app.use('/api/admin/settings', adminSettingsRoute);
 app.use('/api/racks', racksRoute);
 app.use('/api/images', imagesRoute);
 app.use('/api/somm/maturity', sommMaturityRoute);
@@ -99,5 +109,10 @@ app.use('/api/somm/prices',  sommPricesRoute);
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
+
+// Load rate limit configuration from DB on startup (non-blocking; falls back to defaults)
+rateLimitsConfig.load().catch(err =>
+  console.warn('[rateLimits] Startup load failed, using defaults:', err.message)
+);
 
 module.exports = app;

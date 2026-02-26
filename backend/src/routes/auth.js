@@ -5,16 +5,20 @@ const rateLimit = require('express-rate-limit');
 const User = require('../models/User');
 const { requireAuth } = require('../middleware/auth');
 const { logAudit } = require('../services/audit');
+const rateLimitsConfig = require('../config/rateLimits');
 
 const router = express.Router();
 
-// Rate limiter for auth endpoints
+// Rate limiter for auth endpoints — default 10 per 15 min (admin-configurable)
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 attempts per window per IP
-  message: { error: 'Too many attempts, please try again later' },
+  windowMs: 15 * 60 * 1000,
+  max: () => rateLimitsConfig.get().auth.max,
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  handler: (req, res) => {
+    logAudit(req, 'system.rate_limit_exceeded', {}, { limiter: 'auth', limit: rateLimitsConfig.get().auth.max });
+    res.status(429).json({ error: 'Too many attempts, please try again later' });
+  }
 });
 
 // Generate short-lived access token (default 15 min)

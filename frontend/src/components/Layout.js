@@ -136,6 +136,13 @@ function Layout({ children }) {
                 >
                   {t('nav.users')}
                 </Link>
+                <Link
+                  to="/admin/settings"
+                  className={`admin-link ${isActive('/admin/settings') ? 'active' : ''}`}
+                  onClick={closeMenu}
+                >
+                  {t('nav.adminSettings')}
+                </Link>
               </>
             )}
 
