@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { CURRENCIES } from '../config/currencies';
-import { fetchRates, convertAmount } from '../utils/currency';
+import { fetchRates, convertAmountHistorical } from '../utils/currency';
 import './SommPrices.css';
 
 function timeAgo(dateStr) {
@@ -183,7 +183,7 @@ function PriceCard({ item, defaultCurrency, userCurrency, rates, onSaved }) {
 
           {item.latestPrice && (() => {
             const prev = item.latestPrice;
-            const converted = convertAmount(prev.price, prev.currency, userCurrency, rates);
+            const converted = convertAmountHistorical(prev.price, prev.currency, userCurrency, prev.exchangeRates, rates);
             return (
               <div className="sp-previous">
                 <span className="sp-previous-label">{t('somm.prices.previousLabel')}</span>

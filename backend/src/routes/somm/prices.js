@@ -3,6 +3,7 @@ const { requireAuth, requireSommOrAdmin } = require('../../middleware/auth');
 const WineVintagePrice = require('../../models/WineVintagePrice');
 const Bottle = require('../../models/Bottle');
 const WineDefinition = require('../../models/WineDefinition');
+const { fetchExchangeRates } = require('../../utils/exchangeRates');
 
 const router = express.Router();
 
@@ -37,10 +38,11 @@ router.get('/queue', requireSommOrAdmin, async (req, res) => {
       {
         $group: {
           _id: { wineDefinition: '$wineDefinition', vintage: '$vintage' },
-          latestSetAt: { $max: '$setAt' },
-          latestPrice:    { $last: '$price' },
-          latestCurrency: { $last: '$currency' },
-          latestSource:   { $last: '$source' }
+          latestSetAt:        { $last: '$setAt' },
+          latestPrice:        { $last: '$price' },
+          latestCurrency:     { $last: '$currency' },
+          latestSource:       { $last: '$source' },
+          latestExchangeRates: { $last: '$exchangeRates' }
         }
       }
     ]);
@@ -77,7 +79,7 @@ router.get('/queue', requireSommOrAdmin, async (req, res) => {
         vintage:       p._id.vintage,
         bottleCount:   p.bottleCount,
         latestPrice:   latest
-          ? { price: latest.latestPrice, currency: latest.latestCurrency, setAt: latest.latestSetAt, source: latest.latestSource }
+          ? { price: latest.latestPrice, currency: latest.latestCurrency, setAt: latest.latestSetAt, source: latest.latestSource, exchangeRates: latest.latestExchangeRates || null }
           : null
       };
     });
@@ -147,11 +149,16 @@ router.post('/', requireSommOrAdmin, async (req, res) => {
       return res.status(404).json({ error: 'Wine definition not found' });
     }
 
+    // Snapshot exchange rates at the moment this market price is recorded,
+    // so later conversions remain time-anchored regardless of rate movements.
+    const exchangeRates = await fetchExchangeRates();
+
     const entry = new WineVintagePrice({
       wineDefinition,
       vintage,
       price: priceNum,
       currency: currency || 'USD',
+      exchangeRates: exchangeRates || undefined,
       source: source ? source.trim() : undefined,
       setBy: req.user.id
     });

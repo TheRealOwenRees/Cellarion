@@ -32,6 +32,12 @@ const wineVintagePriceSchema = new mongoose.Schema({
     trim: true,
     maxlength: [10, 'Currency code too long']
   },
+  // Exchange rates (USD-base) snapshot captured at the moment this price was recorded.
+  // Used to convert historical market prices without distortion from later rate movements.
+  exchangeRates: {
+    type: Map,
+    of: Number
+  },
   // Optional: where the price was sourced (e.g. "Vivino", "Wine-Searcher")
   source: {
     type: String,

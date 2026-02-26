@@ -213,6 +213,7 @@
     "size": "Storlek",
     "ratingLabel": "Betyg",
     "pricePaid": "Betalat pris",
+    "priceAtEntryTooltip": "Omräknat till den valutakurs som registrerades när priset angavs",
     "sommMaturity": "Sommelierens mognad",
     "loadingMaturity": "Laddar…",
     "awaitingSommelier": "Väntar på sommelierens granskning",

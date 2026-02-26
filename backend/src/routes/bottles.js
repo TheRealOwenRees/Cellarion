@@ -7,6 +7,7 @@ const WineDefinition = require('../models/WineDefinition');
 const WineVintageProfile = require('../models/WineVintageProfile');
 const { getCellarRole } = require('../utils/cellarAccess');
 const { logAudit } = require('../services/audit');
+const { fetchExchangeRates } = require('../utils/exchangeRates');
 
 // Strip HTML tags from user-supplied text to prevent XSS in rendered output
 const stripHtml = (str) => (str ? str.replace(/<[^>]*>/g, '').trim() : str);
@@ -53,6 +54,13 @@ router.post('/', async (req, res) => {
       return res.status(404).json({ error: 'Wine definition not found' });
     }
 
+    // Snapshot exchange rates at time of price entry so historical conversions
+    // are time-anchored and immune to later currency fluctuations.
+    let priceCurrencyRates;
+    if (price !== undefined && price !== null && price !== '') {
+      priceCurrencyRates = await fetchExchangeRates() || undefined;
+    }
+
     // Bottle always belongs to the cellar owner (clean ownership model)
     const bottle = new Bottle({
       cellar,
@@ -61,6 +69,7 @@ router.post('/', async (req, res) => {
       vintage: vintage || 'NV',
       price,
       currency: currency || 'USD',
+      priceCurrencyRates,
       bottleSize: bottleSize || '750ml',
       purchaseDate,
       purchaseLocation: stripHtml(purchaseLocation),
@@ -178,6 +187,17 @@ router.put('/:id', async (req, res) => {
         bottle[field] = newVal;
       }
     });
+
+    // Re-snapshot exchange rates whenever price or currency is being updated,
+    // so the stored rates reflect the moment this price was (re-)confirmed.
+    if ('price' in req.body || 'currency' in req.body) {
+      if (bottle.price !== null && bottle.price !== undefined) {
+        const currentRates = await fetchExchangeRates();
+        if (currentRates) bottle.priceCurrencyRates = currentRates;
+      } else {
+        bottle.priceCurrencyRates = undefined;
+      }
+    }
 
     await bottle.save();
     await bottle.populate({

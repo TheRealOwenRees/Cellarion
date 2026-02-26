@@ -37,6 +37,12 @@ const bottleSchema = new mongoose.Schema({
     trim: true,
     maxlength: [10, 'Currency code too long']
   },
+  // Exchange rates (USD-base) snapshot captured at the moment price was saved.
+  // Used to convert historical prices without distortion from later rate movements.
+  priceCurrencyRates: {
+    type: Map,
+    of: Number
+  },
   bottleSize: {
     type: String,
     default: '750ml',
