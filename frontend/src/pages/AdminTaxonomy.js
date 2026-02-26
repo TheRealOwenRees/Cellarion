@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import './AdminTaxonomy.css';
 
 function AdminTaxonomy() {
+  const { t } = useTranslation();
   const { apiFetch } = useAuth();
   const [activeTab, setActiveTab] = useState('countries');
   const [items, setItems] = useState([]);
@@ -93,12 +95,24 @@ function AdminTaxonomy() {
     }
   };
 
+  const addBtnLabel = {
+    countries: t('admin.taxonomy.addCountry'),
+    regions: t('admin.taxonomy.addRegion'),
+    grapes: t('admin.taxonomy.addGrape')
+  }[activeTab] || '';
+
+  const addFormTitle = {
+    countries: t('admin.taxonomy.addCountry'),
+    regions: t('admin.taxonomy.addRegion'),
+    grapes: t('admin.taxonomy.addGrape')
+  }[activeTab] || '';
+
   const renderForm = () => {
     if (activeTab === 'countries') {
       return (
         <>
           <div className="form-group">
-            <label>Country Name *</label>
+            <label>{t('admin.taxonomy.countryNameLabel')}</label>
             <input
               type="text"
               value={formData.name || ''}
@@ -107,7 +121,7 @@ function AdminTaxonomy() {
             />
           </div>
           <div className="form-group">
-            <label>ISO Code (2-letter)</label>
+            <label>{t('admin.taxonomy.isoCodeLabel')}</label>
             <input
               type="text"
               value={formData.code || ''}
@@ -124,7 +138,7 @@ function AdminTaxonomy() {
       return (
         <>
           <div className="form-group">
-            <label>Region Name *</label>
+            <label>{t('admin.taxonomy.regionNameLabel')}</label>
             <input
               type="text"
               value={formData.name || ''}
@@ -133,13 +147,13 @@ function AdminTaxonomy() {
             />
           </div>
           <div className="form-group">
-            <label>Country *</label>
+            <label>{t('admin.requests.countryLabel')}</label>
             <select
               value={formData.country || ''}
               onChange={(e) => setFormData({ ...formData, country: e.target.value })}
               required
             >
-              <option value="">Select a country</option>
+              <option value="">{t('admin.taxonomy.selectCountry')}</option>
               {allCountries.map(c => (
                 <option key={c._id} value={c._id}>{c.name}</option>
               ))}
@@ -153,7 +167,7 @@ function AdminTaxonomy() {
       return (
         <>
           <div className="form-group">
-            <label>Grape Name *</label>
+            <label>{t('admin.taxonomy.grapeNameLabel')}</label>
             <input
               type="text"
               value={formData.name || ''}
@@ -162,7 +176,7 @@ function AdminTaxonomy() {
             />
           </div>
           <div className="form-group">
-            <label>Synonyms (comma-separated)</label>
+            <label>{t('admin.taxonomy.synonymsLabel')}</label>
             <input
               type="text"
               value={formData.synonymsText || ''}
@@ -171,7 +185,7 @@ function AdminTaxonomy() {
                 synonymsText: e.target.value,
                 synonyms: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
               })}
-              placeholder="Cab Sauv, CS"
+              placeholder={t('admin.taxonomy.synonymsPlaceholder')}
             />
           </div>
         </>
@@ -184,7 +198,7 @@ function AdminTaxonomy() {
       return <span>{item.name} {item.code && `(${item.code})`}</span>;
     }
     if (activeTab === 'regions') {
-      return <span>{item.name} — {item.country?.name || 'Unknown country'}</span>;
+      return <span>{item.name} — {item.country?.name || t('admin.taxonomy.unknownCountry')}</span>;
     }
     if (activeTab === 'grapes') {
       return <span>{item.name} {item.synonyms?.length > 0 && <em>({item.synonyms.join(', ')})</em>}</span>;
@@ -194,9 +208,9 @@ function AdminTaxonomy() {
   return (
     <div className="admin-taxonomy-page">
       <div className="page-header">
-        <h1>Admin: Taxonomy Management</h1>
+        <h1>{t('admin.taxonomy.title')}</h1>
         <button onClick={() => setShowForm(!showForm)} className="btn btn-primary">
-          {showForm ? 'Cancel' : `+ Add ${activeTab.slice(0, -1)}`}
+          {showForm ? t('common.cancel') : addBtnLabel}
         </button>
       </div>
 
@@ -207,7 +221,7 @@ function AdminTaxonomy() {
             className={`tab ${activeTab === tab ? 'active' : ''}`}
             onClick={() => setActiveTab(tab)}
           >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {t(`admin.taxonomy.${tab}`)}
           </button>
         ))}
       </div>
@@ -216,23 +230,23 @@ function AdminTaxonomy() {
 
       {showForm && (
         <div className="card create-form">
-          <h2>Add {activeTab.slice(0, -1)}</h2>
+          <h2>{addFormTitle}</h2>
           <form onSubmit={handleCreate}>
             {renderForm()}
             <div className="form-actions">
-              <button type="submit" className="btn btn-primary">Create</button>
-              <button type="button" onClick={() => setShowForm(false)} className="btn btn-secondary">Cancel</button>
+              <button type="submit" className="btn btn-primary">{t('admin.taxonomy.createBtn')}</button>
+              <button type="button" onClick={() => setShowForm(false)} className="btn btn-secondary">{t('common.cancel')}</button>
             </div>
           </form>
         </div>
       )}
 
       {loading ? (
-        <div className="loading">Loading...</div>
+        <div className="loading">{t('common.loading')}</div>
       ) : (
         <div className="items-list">
           {items.length === 0 ? (
-            <div className="empty-state"><p>No {activeTab} added yet.</p></div>
+            <div className="empty-state"><p>{t('admin.taxonomy.noItems', { tab: activeTab })}</p></div>
           ) : (
             items.map(item => (
               <div key={item._id} className="taxonomy-item">
@@ -241,7 +255,7 @@ function AdminTaxonomy() {
                   onClick={() => handleDelete(item._id)}
                   className="btn btn-danger btn-small"
                 >
-                  Delete
+                  {t('admin.taxonomy.deleteBtn')}
                 </button>
               </div>
             ))

@@ -22,10 +22,11 @@ router.get('/profile', requireAuth, async (req, res) => {
 
 // PATCH /api/users/preferences - Update current user's preferences
 const ALLOWED_CURRENCIES = ['USD', 'EUR', 'GBP', 'SEK', 'NOK', 'DKK', 'CHF', 'CAD', 'AUD'];
+const ALLOWED_LANGUAGES = ['en', 'sv'];
 
 router.patch('/preferences', requireAuth, async (req, res) => {
   try {
-    const { currency } = req.body;
+    const { currency, language } = req.body;
     const update = {};
 
     if (currency !== undefined) {
@@ -33,6 +34,13 @@ router.patch('/preferences', requireAuth, async (req, res) => {
         return res.status(400).json({ error: `Invalid currency. Allowed: ${ALLOWED_CURRENCIES.join(', ')}` });
       }
       update['preferences.currency'] = currency.toUpperCase();
+    }
+
+    if (language !== undefined) {
+      if (!ALLOWED_LANGUAGES.includes(language)) {
+        return res.status(400).json({ error: `Invalid language. Allowed: ${ALLOWED_LANGUAGES.join(', ')}` });
+      }
+      update['preferences.language'] = language;
     }
 
     if (Object.keys(update).length === 0) {

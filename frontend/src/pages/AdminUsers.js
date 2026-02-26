@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { PLAN_NAMES, PLANS } from '../config/plans';
 import './AdminUsers.css';
@@ -45,6 +46,7 @@ function RoleCheckboxes({ userId, currentRoles = [], disabled, onChange }) {
 }
 
 function AdminUsers() {
+  const { t } = useTranslation();
   const { apiFetch } = useAuth();
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
@@ -145,8 +147,8 @@ function AdminUsers() {
   return (
     <div className="admin-users-page">
       <div className="page-header">
-        <h1>Users</h1>
-        <span className="users-total">{total} user{total !== 1 ? 's' : ''}</span>
+        <h1>{t('admin.users.title')}</h1>
+        <span className="users-total">{t('admin.users.user', { count: total })}</span>
       </div>
 
       {/* Filters */}
@@ -154,7 +156,7 @@ function AdminUsers() {
         <input
           className="input"
           type="text"
-          placeholder="Search username or email…"
+          placeholder={t('admin.users.searchPlaceholder')}
           value={pendingFilters.search}
           onChange={e => setPendingFilters(p => ({ ...p, search: e.target.value }))}
         />
@@ -163,7 +165,7 @@ function AdminUsers() {
           value={pendingFilters.plan}
           onChange={e => setPendingFilters(p => ({ ...p, plan: e.target.value }))}
         >
-          <option value="">All plans</option>
+          <option value="">{t('admin.users.allPlans')}</option>
           {PLAN_NAMES.map(p => (
             <option key={p} value={p}>{PLANS[p].label}</option>
           ))}
@@ -173,34 +175,34 @@ function AdminUsers() {
           value={pendingFilters.role}
           onChange={e => setPendingFilters(p => ({ ...p, role: e.target.value }))}
         >
-          <option value="">All roles</option>
+          <option value="">{t('admin.users.allRoles')}</option>
           {ALL_ROLES.map(r => (
             <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
           ))}
         </select>
-        <button type="submit" className="btn btn-primary">Filter</button>
+        <button type="submit" className="btn btn-primary">{t('admin.users.filterBtn')}</button>
         {(filters.search || filters.plan || filters.role) && (
-          <button type="button" className="btn btn-secondary" onClick={clearFilters}>Clear</button>
+          <button type="button" className="btn btn-secondary" onClick={clearFilters}>{t('admin.users.clearBtn')}</button>
         )}
       </form>
 
       {error && <div className="error-message">{error}</div>}
 
       {loading ? (
-        <div className="loading-spinner">Loading users…</div>
+        <div className="loading-spinner">{t('admin.users.loadingUsers')}</div>
       ) : users.length === 0 ? (
-        <div className="empty-state">No users found.</div>
+        <div className="empty-state">{t('admin.users.noUsers')}</div>
       ) : (
         <>
           <div className="users-table-wrap">
             <table className="users-table">
               <thead>
                 <tr>
-                  <th>Username</th>
-                  <th>Email</th>
-                  <th>Plan</th>
-                  <th>Roles</th>
-                  <th>Joined</th>
+                  <th>{t('admin.users.colUsername')}</th>
+                  <th>{t('admin.users.colEmail')}</th>
+                  <th>{t('admin.users.colPlan')}</th>
+                  <th>{t('admin.users.colRoles')}</th>
+                  <th>{t('admin.users.colJoined')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -252,15 +254,15 @@ function AdminUsers() {
                 disabled={offset === 0}
                 onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
               >
-                Previous
+                {t('admin.users.previousBtn')}
               </button>
-              <span className="users-page-info">Page {currentPage} of {totalPages}</span>
+              <span className="users-page-info">{t('admin.users.page', { current: currentPage, total: totalPages })}</span>
               <button
                 className="btn btn-secondary"
                 disabled={offset + PAGE_SIZE >= total}
                 onClick={() => setOffset(offset + PAGE_SIZE)}
               >
-                Next
+                {t('admin.users.nextBtn')}
               </button>
             </div>
           )}

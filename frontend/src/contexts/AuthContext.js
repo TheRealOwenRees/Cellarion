@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, useRef, useCallback } from 'react';
 import { getPlanConfig, planHasFeature } from '../config/plans';
 import { createApiFetch } from '../utils/apiFetch';
+import i18n from '../i18n';
 
 const AuthContext = createContext();
 
@@ -124,6 +125,9 @@ export const AuthProvider = ({ children }) => {
       if (response.ok) {
         const data = await response.json();
         setUser(data.user);
+        if (data.user?.preferences?.language) {
+          i18n.changeLanguage(data.user.preferences.language);
+        }
       } else if (response.status === 401) {
         // Access token may have expired — try refresh before giving up
         const newToken = await handleRefresh();
@@ -135,6 +139,9 @@ export const AuthProvider = ({ children }) => {
           if (retry.ok) {
             const data = await retry.json();
             setUser(data.user);
+            if (data.user?.preferences?.language) {
+              i18n.changeLanguage(data.user.preferences.language);
+            }
             return;
           }
         }
@@ -171,6 +178,9 @@ export const AuthProvider = ({ children }) => {
 
       storeToken(data.token);
       setUser(data.user);
+      if (data.user?.preferences?.language) {
+        i18n.changeLanguage(data.user.preferences.language);
+      }
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
@@ -191,6 +201,9 @@ export const AuthProvider = ({ children }) => {
 
       storeToken(data.token);
       setUser(data.user);
+      if (data.user?.preferences?.language) {
+        i18n.changeLanguage(data.user.preferences.language);
+      }
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };

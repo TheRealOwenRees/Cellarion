@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { PLANS } from '../config/plans';
 import CellarionLogo from './CellarionLogo';
 import './Layout.css';
 
 function Layout({ children }) {
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -40,7 +42,7 @@ function Layout({ children }) {
             <button
               className="hamburger"
               onClick={() => setMobileMenuOpen(o => !o)}
-              aria-label="Toggle navigation"
+              aria-label={t('nav.toggleNav')}
               aria-expanded={mobileMenuOpen}
             >
               <span className={`hamburger-icon ${mobileMenuOpen ? 'open' : ''}`}>
@@ -57,7 +59,7 @@ function Layout({ children }) {
               className={isActive('/cellars') ? 'active' : ''}
               onClick={closeMenu}
             >
-              My Cellars
+              {t('nav.myCellars')}
             </Link>
             {roles.includes('admin') && (
               <Link
@@ -65,7 +67,7 @@ function Layout({ children }) {
                 className={isActive('/wines') ? 'active' : ''}
                 onClick={closeMenu}
               >
-                Wine Registry
+                {t('nav.wineRegistry')}
               </Link>
             )}
             <Link
@@ -73,7 +75,7 @@ function Layout({ children }) {
               className={isActive('/wine-requests') ? 'active' : ''}
               onClick={closeMenu}
             >
-              My Requests
+              {t('nav.myRequests')}
             </Link>
 
             {(roles.includes('somm') || roles.includes('admin')) && (
@@ -84,14 +86,14 @@ function Layout({ children }) {
                   className={`somm-link ${isActive('/somm/maturity') ? 'active' : ''}`}
                   onClick={closeMenu}
                 >
-                  Maturity Queue
+                  {t('nav.maturityQueue')}
                 </Link>
                 <Link
                   to="/somm/prices"
                   className={`somm-link ${isActive('/somm/prices') ? 'active' : ''}`}
                   onClick={closeMenu}
                 >
-                  Price Queue
+                  {t('nav.priceQueue')}
                 </Link>
               </>
             )}
@@ -104,35 +106,35 @@ function Layout({ children }) {
                   className={`admin-link ${isActive('/admin/requests') ? 'active' : ''}`}
                   onClick={closeMenu}
                 >
-                  Admin Requests
+                  {t('nav.adminRequests')}
                 </Link>
                 <Link
                   to="/admin/taxonomy"
                   className={`admin-link ${isActive('/admin/taxonomy') ? 'active' : ''}`}
                   onClick={closeMenu}
                 >
-                  Taxonomy
+                  {t('nav.taxonomy')}
                 </Link>
                 <Link
                   to="/admin/images"
                   className={`admin-link ${isActive('/admin/images') ? 'active' : ''}`}
                   onClick={closeMenu}
                 >
-                  Image Review
+                  {t('nav.imageReview')}
                 </Link>
                 <Link
                   to="/admin/audit"
                   className={`admin-link ${isActive('/admin/audit') ? 'active' : ''}`}
                   onClick={closeMenu}
                 >
-                  Audit Log
+                  {t('nav.auditLog')}
                 </Link>
                 <Link
                   to="/admin/users"
                   className={`admin-link ${isActive('/admin/users') ? 'active' : ''}`}
                   onClick={closeMenu}
                 >
-                  Users
+                  {t('nav.users')}
                 </Link>
               </>
             )}
@@ -140,16 +142,16 @@ function Layout({ children }) {
             <div className="navbar-user">
               <span className="user-info">
                 👤 {user.username}
-                {roles.includes('admin') && <span className="badge">Admin</span>}
-                {roles.includes('somm')  && <span className="badge badge--somm">Somm</span>}
+                {roles.includes('admin') && <span className="badge">{t('nav.badge.admin')}</span>}
+                {roles.includes('somm')  && <span className="badge badge--somm">{t('nav.badge.somm')}</span>}
                 <span className={`badge badge--plan badge--plan-${user.plan || 'free'}`}>{planLabel}</span>
               </span>
               <div className="navbar-user-actions">
                 <Link to="/settings" className={`btn-settings ${isActive('/settings') ? 'active' : ''}`} onClick={closeMenu}>
-                  Settings
+                  {t('nav.settings')}
                 </Link>
                 <button onClick={handleLogout} className="btn-logout">
-                  Logout
+                  {t('nav.logout')}
                 </button>
               </div>
             </div>

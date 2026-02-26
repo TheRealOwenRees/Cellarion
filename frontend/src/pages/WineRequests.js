@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import './WineRequests.css';
 
 function WineRequests() {
+  const { t } = useTranslation();
   const { apiFetch } = useAuth();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -52,28 +54,28 @@ function WineRequests() {
   return (
     <div className="wine-requests-page">
       <div className="page-header">
-        <h1>My Wine Requests</h1>
+        <h1>{t('wineRequests.title')}</h1>
         <button onClick={() => setShowForm(!showForm)} className="btn btn-primary">
-          {showForm ? 'Cancel' : '+ New Request'}
+          {showForm ? t('common.cancel') : t('wineRequests.newRequest')}
         </button>
       </div>
 
       {showForm && (
         <div className="card">
-          <h2>Request a New Wine</h2>
+          <h2>{t('wineRequests.requestTitle')}</h2>
           <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label>Wine Name *</label>
+              <label>{t('wineRequests.wineNameLabel')}</label>
               <input
                 type="text"
                 value={formData.wineName}
                 onChange={(e) => setFormData({ ...formData, wineName: e.target.value })}
                 required
-                placeholder="Full wine name"
+                placeholder={t('wineRequests.wineNamePlaceholder')}
               />
             </div>
             <div className="form-group">
-              <label>Source URL *</label>
+              <label>{t('wineRequests.sourceUrlLabel')}</label>
               <input
                 type="url"
                 value={formData.sourceUrl}
@@ -83,7 +85,7 @@ function WineRequests() {
               />
             </div>
             <div className="form-group">
-              <label>Image URL (Optional)</label>
+              <label>{t('wineRequests.imageUrlLabel')}</label>
               <input
                 type="url"
                 value={formData.image}
@@ -92,9 +94,9 @@ function WineRequests() {
               />
             </div>
             <div className="form-actions">
-              <button type="submit" className="btn btn-success">Submit Request</button>
+              <button type="submit" className="btn btn-success">{t('wineRequests.submitRequest')}</button>
               <button type="button" onClick={() => setShowForm(false)} className="btn btn-secondary">
-                Cancel
+                {t('common.cancel')}
               </button>
             </div>
           </form>
@@ -102,10 +104,10 @@ function WineRequests() {
       )}
 
       {loading ? (
-        <div className="loading">Loading requests...</div>
+        <div className="loading">{t('wineRequests.loadingRequests')}</div>
       ) : requests.length === 0 ? (
         <div className="empty-state">
-          <p>You haven't submitted any wine requests yet.</p>
+          <p>{t('wineRequests.noRequests')}</p>
         </div>
       ) : (
         <div className="requests-list">
@@ -117,21 +119,21 @@ function WineRequests() {
                   {request.status}
                 </span>
               </div>
-              <p><strong>Source:</strong> <a href={request.sourceUrl} target="_blank" rel="noopener noreferrer">
+              <p><strong>{t('common.source')}:</strong> <a href={request.sourceUrl} target="_blank" rel="noopener noreferrer">
                 {request.sourceUrl}
               </a></p>
               {request.status === 'resolved' && request.linkedWineDefinition && (
                 <div className="resolution">
-                  <strong>Linked to:</strong> {request.linkedWineDefinition.name} by {request.linkedWineDefinition.producer}
+                  <strong>{t('wineRequests.linkedTo')}</strong> {request.linkedWineDefinition.name} by {request.linkedWineDefinition.producer}
                 </div>
               )}
               {request.adminNotes && (
                 <div className="admin-notes">
-                  <strong>Admin Notes:</strong> {request.adminNotes}
+                  <strong>{t('wineRequests.adminNotes')}</strong> {request.adminNotes}
                 </div>
               )}
               <div className="request-footer">
-                <small>Submitted {new Date(request.createdAt).toLocaleDateString()}</small>
+                <small>{t('wineRequests.submitted', { date: new Date(request.createdAt).toLocaleDateString() })}</small>
               </div>
             </div>
           ))}

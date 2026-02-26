@@ -1,11 +1,14 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { CURRENCIES } from '../config/currencies';
 import './Settings.css';
 
 function Settings() {
+  const { t, i18n } = useTranslation();
   const { user, updatePreferences } = useAuth();
   const [currency, setCurrency] = useState(user?.preferences?.currency || 'USD');
+  const [language, setLanguage] = useState(user?.preferences?.language || i18n.language?.split('-')[0] || 'en');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
@@ -15,9 +18,10 @@ function Settings() {
     setSaving(true);
     setError(null);
     setSaved(false);
-    const result = await updatePreferences({ currency });
+    const result = await updatePreferences({ currency, language });
     setSaving(false);
     if (result.success) {
+      i18n.changeLanguage(language);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } else {
@@ -27,16 +31,16 @@ function Settings() {
 
   return (
     <div className="settings-page">
-      <h1>Settings</h1>
+      <h1>{t('settings.title')}</h1>
 
       <div className="card settings-card">
-        <h2 className="settings-section-title">Display Preferences</h2>
+        <h2 className="settings-section-title">{t('settings.displayPreferences')}</h2>
 
         <form onSubmit={handleSave}>
           <div className="form-group">
-            <label htmlFor="currency-select">Default Currency</label>
+            <label htmlFor="currency-select">{t('settings.defaultCurrency')}</label>
             <p className="settings-hint">
-              Used as the default in bottle forms and price fields.
+              {t('settings.currencyHint')}
             </p>
             <select
               id="currency-select"
@@ -50,13 +54,29 @@ function Settings() {
             </select>
           </div>
 
+          <div className="form-group">
+            <label htmlFor="language-select">{t('settings.language')}</label>
+            <p className="settings-hint">
+              {t('settings.languageHint')}
+            </p>
+            <select
+              id="language-select"
+              className="input settings-select"
+              value={language}
+              onChange={e => setLanguage(e.target.value)}
+            >
+              <option value="en">{t('settings.languageEn')}</option>
+              <option value="sv">{t('settings.languageSv')}</option>
+            </select>
+          </div>
+
           {error && <div className="alert alert-error">{error}</div>}
 
           <div className="settings-actions">
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? t('settings.savingBtn') : t('settings.saveBtn')}
             </button>
-            {saved && <span className="settings-saved">Saved</span>}
+            {saved && <span className="settings-saved">{t('settings.savedMsg')}</span>}
           </div>
         </form>
       </div>

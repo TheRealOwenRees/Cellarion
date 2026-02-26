@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { CURRENCIES } from '../config/currencies';
 import { monthToLastDay } from '../utils/drinkStatus';
@@ -7,6 +8,7 @@ import ImageUpload from '../components/ImageUpload';
 import './AddBottle.css';
 
 function AddBottle() {
+  const { t } = useTranslation();
   const { id: cellarId } = useParams();
   const { apiFetch, user } = useAuth();
   const navigate = useNavigate();
@@ -113,20 +115,20 @@ function AddBottle() {
     <div className="add-bottle-page">
       <div className="page-header">
         <div>
-          <Link to={`/cellars/${cellarId}`} className="back-link">← Back to Cellar</Link>
-          <h1>Add Bottle</h1>
+          <Link to={`/cellars/${cellarId}`} className="back-link">{t('addBottle.backToCellar')}</Link>
+          <h1>{t('addBottle.title')}</h1>
         </div>
       </div>
 
       <div className="steps-indicator">
         <div className={`step ${step >= 1 ? 'active' : ''}`}>
           <div className="step-number">1</div>
-          <span>Select Wine</span>
+          <span>{t('addBottle.stepSelectWine')}</span>
         </div>
         <div className="step-divider"></div>
         <div className={`step ${step >= 2 ? 'active' : ''}`}>
           <div className="step-number">2</div>
-          <span>Bottle Details</span>
+          <span>{t('addBottle.stepBottleDetails')}</span>
         </div>
       </div>
 
@@ -134,28 +136,28 @@ function AddBottle() {
 
       {step === 1 && (
         <div className="card">
-          <h2>Search for a Wine</h2>
+          <h2>{t('addBottle.searchForWine')}</h2>
           <div className="search-section">
             <input
               type="text"
-              placeholder="Search by wine name or producer..."
+              placeholder={t('addBottle.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="search-input-large"
               autoFocus
             />
             <p className="help-text">
-              Can't find your wine? <Link to="/wine-requests">Request a new wine</Link>
+              {t('addBottle.cantFindWine')} <Link to="/wine-requests">{t('addBottle.requestNewWine')}</Link>
             </p>
           </div>
 
-          {loading && <p>Searching...</p>}
+          {loading && <p>{t('addBottle.searching')}</p>}
 
-          {loading && wines.length === 0 && <p className="loading">Loading...</p>}
+          {loading && wines.length === 0 && <p className="loading">{t('common.loading')}</p>}
 
           {!loading && wines.length === 0 && (
             <div className="empty-state">
-              <p>{search.length > 0 ? 'No wines matched your search.' : 'Start typing to search for a wine.'}</p>
+              <p>{search.length > 0 ? t('addBottle.noWinesMatched') : t('addBottle.startTyping')}</p>
             </div>
           )}
 
@@ -183,7 +185,7 @@ function AddBottle() {
                         <span className={`wine-type-pill ${wine.type}`}>{wine.type}</span>
                       </div>
                     </div>
-                    <button className="btn btn-primary btn-small">Select</button>
+                    <button className="btn btn-primary btn-small">{t('addBottle.selectBtn')}</button>
                   </div>
                 ))}
               </div>
@@ -195,7 +197,7 @@ function AddBottle() {
       {step === 2 && selectedWine && (
         <div className="card">
           <div className="selected-wine">
-            <h3>Selected Wine</h3>
+            <h3>{t('addBottle.selectedWine')}</h3>
             <div className="wine-summary">
               {selectedWine.image && (
                 <img
@@ -210,27 +212,27 @@ function AddBottle() {
                 <span> by {selectedWine.producer}</span>
               </div>
               <button onClick={() => setStep(1)} className="btn btn-secondary btn-small">
-                Change Wine
+                {t('addBottle.changeWine')}
               </button>
             </div>
           </div>
 
-          <h2>Bottle Details</h2>
+          <h2>{t('addBottle.bottleDetails')}</h2>
           <form onSubmit={handleSubmit}>
             <div className="grid-2">
               <div className="form-group">
-                <label>Vintage *</label>
+                <label>{t('common.vintage')} *</label>
                 <input
                   type="text"
                   value={bottleData.vintage}
                   onChange={(e) => setBottleData({ ...bottleData, vintage: e.target.value })}
-                  placeholder="e.g., 2015 or NV"
+                  placeholder={t('addBottle.vintagePlaceholder')}
                   required
                 />
               </div>
 
               <div className="form-group">
-                <label>Number of bottles *</label>
+                <label>{t('addBottle.numberOfBottles')}</label>
                 <input
                   type="number"
                   value={numBottles}
@@ -241,7 +243,7 @@ function AddBottle() {
               </div>
 
               <div className="form-group">
-                <label>Price</label>
+                <label>{t('common.price')}</label>
                 <input
                   type="number"
                   step="0.01"
@@ -252,7 +254,7 @@ function AddBottle() {
               </div>
 
               <div className="form-group">
-                <label>Currency</label>
+                <label>{t('common.currency')}</label>
                 <select
                   value={bottleData.currency}
                   onChange={(e) => setBottleData({ ...bottleData, currency: e.target.value })}
@@ -262,7 +264,7 @@ function AddBottle() {
               </div>
 
               <div className="form-group">
-                <label>Bottle Size</label>
+                <label>{t('addBottle.bottleSize')}</label>
                 <select
                   value={bottleData.bottleSize}
                   onChange={(e) => setBottleData({ ...bottleData, bottleSize: e.target.value })}
@@ -275,12 +277,12 @@ function AddBottle() {
               </div>
 
               <div className="form-group">
-                <label>Rating (1-5)</label>
+                <label>{t('addBottle.ratingLabel')}</label>
                 <select
                   value={bottleData.rating}
                   onChange={(e) => setBottleData({ ...bottleData, rating: e.target.value })}
                 >
-                  <option value="">Not rated</option>
+                  <option value="">{t('common.noRating')}</option>
                   <option value="5">⭐⭐⭐⭐⭐ (5 stars)</option>
                   <option value="4">⭐⭐⭐⭐ (4 stars)</option>
                   <option value="3">⭐⭐⭐ (3 stars)</option>
@@ -290,7 +292,7 @@ function AddBottle() {
               </div>
 
               <div className="form-group">
-                <label>Purchase Date</label>
+                <label>{t('addBottle.purchaseDate')}</label>
                 <input
                   type="date"
                   value={bottleData.purchaseDate}
@@ -299,17 +301,17 @@ function AddBottle() {
               </div>
 
               <div className="form-group">
-                <label>Purchase Location</label>
+                <label>{t('addBottle.purchaseLocation')}</label>
                 <input
                   type="text"
                   value={bottleData.purchaseLocation}
                   onChange={(e) => setBottleData({ ...bottleData, purchaseLocation: e.target.value })}
-                  placeholder="Store or location"
+                  placeholder={t('addBottle.purchaseLocationPlaceholder')}
                 />
               </div>
 
               <div className="form-group">
-                <label>Purchase URL</label>
+                <label>{t('addBottle.purchaseUrl')}</label>
                 <input
                   type="url"
                   value={bottleData.purchaseUrl}
@@ -320,24 +322,23 @@ function AddBottle() {
             </div>
 
             <div className="form-group">
-              <label>Notes</label>
+              <label>{t('common.notes')}</label>
               <textarea
                 value={bottleData.notes}
                 onChange={(e) => setBottleData({ ...bottleData, notes: e.target.value })}
-                placeholder="Tasting notes, storage conditions, etc."
+                placeholder={t('addBottle.notesPlaceholder')}
                 rows="4"
               />
             </div>
 
             <div className="form-group drink-window-section">
-              <label>Drink Window (optional)</label>
+              <label>{t('addBottle.drinkWindow')}</label>
               <p className="help-text">
-                Set when this bottle should be drunk. You can set one or both dates.
-                If you add multiple bottles, each gets its own drink window later.
+                {t('addBottle.drinkWindowHint')}
               </p>
               <div className="drink-window-fields">
                 <div>
-                  <label className="sublabel">Drink From</label>
+                  <label className="sublabel">{t('addBottle.drinkFrom')}</label>
                   <input
                     type="month"
                     value={bottleData.drinkFrom}
@@ -345,7 +346,7 @@ function AddBottle() {
                   />
                 </div>
                 <div>
-                  <label className="sublabel">Drink Before</label>
+                  <label className="sublabel">{t('addBottle.drinkBefore')}</label>
                   <input
                     type="month"
                     value={bottleData.drinkBefore}
@@ -356,9 +357,9 @@ function AddBottle() {
             </div>
 
             <div className="form-group">
-              <label>Bottle Photos</label>
+              <label>{t('addBottle.bottlePhotos')}</label>
               <p className="help-text">
-                Take a photo or upload an image. Background will be automatically removed.
+                {t('addBottle.photosHint')}
               </p>
               <ImageUpload
                 wineDefinitionId={selectedWine?._id}
@@ -368,14 +369,14 @@ function AddBottle() {
 
             <div className="form-actions">
               <button type="submit" className="btn btn-success">
-                Add Bottle to Cellar
+                {t('addBottle.addBottleBtn')}
               </button>
               <button
                 type="button"
                 onClick={() => navigate(`/cellars/${cellarId}`)}
                 className="btn btn-secondary"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
             </div>
           </form>

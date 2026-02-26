@@ -47,6 +47,11 @@ const userSchema = new mongoose.Schema({
       default: 'USD',
       uppercase: true,
       trim: true
+    },
+    language: {
+      type: String,
+      default: 'en',
+      trim: true
     }
   },
   refreshTokenHash: {

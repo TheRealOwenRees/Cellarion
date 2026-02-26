@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import './SommMaturity.css';
 
@@ -37,6 +38,7 @@ function yearsFromVintage(vintageInt, from, until) {
 }
 
 function SommMaturity() {
+  const { t } = useTranslation();
   const { apiFetch } = useAuth();
   const [profiles, setProfiles] = useState([]);
   const [tab, setTab] = useState('pending');
@@ -66,28 +68,28 @@ function SommMaturity() {
   return (
     <div className="somm-page">
       <div className="page-header">
-        <h1>Maturity Queue</h1>
+        <h1>{t('somm.maturity.title')}</h1>
         <p className="somm-subtitle">
-          Set aging windows for wine vintages so users can see peak drinking status.
+          {t('somm.maturity.subtitle')}
         </p>
       </div>
 
       <div className="somm-tabs">
         <button className={`somm-tab ${tab === 'pending'  ? 'active' : ''}`} onClick={() => setTab('pending')}>
-          Pending review
+          {t('somm.maturity.pendingTab')}
         </button>
         <button className={`somm-tab ${tab === 'reviewed' ? 'active' : ''}`} onClick={() => setTab('reviewed')}>
-          Reviewed
+          {t('somm.maturity.reviewedTab')}
         </button>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
 
       {loading ? (
-        <div className="loading">Loading profiles…</div>
+        <div className="loading">{t('somm.maturity.loadingProfiles')}</div>
       ) : profiles.length === 0 ? (
         <div className="somm-empty">
-          {tab === 'pending' ? 'No vintages awaiting review. Great work!' : 'No reviewed profiles yet.'}
+          {tab === 'pending' ? t('somm.maturity.noPending') : t('somm.maturity.noReviewed')}
         </div>
       ) : (
         <div className="somm-list">
@@ -108,6 +110,7 @@ function SommMaturity() {
 
 // ── Individual profile card with inline form ──────────────────────────────────
 function ProfileCard({ profile, isPending, onSaved, onReset }) {
+  const { t } = useTranslation();
   const { apiFetch } = useAuth();
   const wine       = profile.wineDefinition;
   const vintageInt = parseInt(profile.vintage);
@@ -155,7 +158,7 @@ function ProfileCard({ profile, isPending, onSaved, onReset }) {
   };
 
   const handleReset = async () => {
-    if (!window.confirm('Reset this profile back to pending?')) return;
+    if (!window.confirm(t('somm.maturity.resetConfirm'))) return;
     setResetting(true);
     try {
       const res = await apiFetch(`/api/somm/maturity/${profile._id}/reset`, {
@@ -198,7 +201,7 @@ function ProfileCard({ profile, isPending, onSaved, onReset }) {
             <span className={`maturity-badge maturity-badge--${phase.cls}`}>{phase.label}</span>
           ) : (
             <span className={`somm-status-pill ${profile.status}`}>
-              {profile.status === 'pending' ? 'Pending' : 'Reviewed'}
+              {profile.status === 'pending' ? t('somm.maturity.statusPending') : t('somm.maturity.statusReviewed')}
             </span>
           )}
           <span className="somm-chevron">{expanded ? '▲' : '▼'}</span>
@@ -211,8 +214,8 @@ function ProfileCard({ profile, isPending, onSaved, onReset }) {
           {err && <div className="alert alert-error">{err}</div>}
 
           <p className="somm-form-hint">
-            Enter calendar years for each drinking phase. Leave a phase blank if it doesn't apply.
-            {!isNaN(vintageInt) && ` (Vintage: ${vintageInt})`}
+            {t('somm.maturity.phaseHint')}
+            {!isNaN(vintageInt) && ` (${t('somm.maturity.vintageLabel')} ${vintageInt})`}
           </p>
 
           {/* ── Phase rows ── */}
@@ -221,14 +224,14 @@ function ProfileCard({ profile, isPending, onSaved, onReset }) {
             {/* Phase 1 — Early drinking */}
             <div className="somm-phase-row">
               <div className="somm-phase-label somm-phase-label--early">
-                <span className="somm-phase-name">Early drinking</span>
+                <span className="somm-phase-name">{t('somm.maturity.phaseEarly')}</span>
                 <span className="somm-phase-yrs">
                   {yearsFromVintage(vintageInt, form.earlyFrom, form.earlyUntil)}
                 </span>
               </div>
               <div className="somm-phase-inputs">
                 <div className="somm-range-field">
-                  <label>From</label>
+                  <label>{t('somm.maturity.fromLabel')}</label>
                   <input
                     type="number" min="1900" max="2200"
                     placeholder={!isNaN(vintageInt) ? String(vintageInt + 2) : 'Year'}
@@ -237,7 +240,7 @@ function ProfileCard({ profile, isPending, onSaved, onReset }) {
                 </div>
                 <span className="somm-range-dash">—</span>
                 <div className="somm-range-field">
-                  <label>Until</label>
+                  <label>{t('somm.maturity.untilLabel')}</label>
                   <input
                     type="number" min="1900" max="2200"
                     placeholder={!isNaN(vintageInt) ? String(vintageInt + 5) : 'Year'}
@@ -250,14 +253,14 @@ function ProfileCard({ profile, isPending, onSaved, onReset }) {
             {/* Phase 2 — Optimal maturity */}
             <div className="somm-phase-row">
               <div className="somm-phase-label somm-phase-label--peak">
-                <span className="somm-phase-name">Optimal maturity ⭐</span>
+                <span className="somm-phase-name">{t('somm.maturity.phasePeak')}</span>
                 <span className="somm-phase-yrs">
                   {yearsFromVintage(vintageInt, form.peakFrom, form.peakUntil)}
                 </span>
               </div>
               <div className="somm-phase-inputs">
                 <div className="somm-range-field">
-                  <label>From</label>
+                  <label>{t('somm.maturity.fromLabel')}</label>
                   <input
                     type="number" min="1900" max="2200"
                     placeholder={!isNaN(vintageInt) ? String(vintageInt + 6) : 'Year'}
@@ -266,7 +269,7 @@ function ProfileCard({ profile, isPending, onSaved, onReset }) {
                 </div>
                 <span className="somm-range-dash">—</span>
                 <div className="somm-range-field">
-                  <label>Until</label>
+                  <label>{t('somm.maturity.untilLabel')}</label>
                   <input
                     type="number" min="1900" max="2200"
                     placeholder={!isNaN(vintageInt) ? String(vintageInt + 15) : 'Year'}
@@ -279,14 +282,14 @@ function ProfileCard({ profile, isPending, onSaved, onReset }) {
             {/* Phase 3 — Late maturity */}
             <div className="somm-phase-row">
               <div className="somm-phase-label somm-phase-label--late">
-                <span className="somm-phase-name">Late maturity</span>
+                <span className="somm-phase-name">{t('somm.maturity.phaseLate')}</span>
                 <span className="somm-phase-yrs">
                   {yearsFromVintage(vintageInt, form.lateFrom, form.lateUntil)}
                 </span>
               </div>
               <div className="somm-phase-inputs">
                 <div className="somm-range-field">
-                  <label>From</label>
+                  <label>{t('somm.maturity.fromLabel')}</label>
                   <input
                     type="number" min="1900" max="2200"
                     placeholder={!isNaN(vintageInt) ? String(vintageInt + 16) : 'Year'}
@@ -295,7 +298,7 @@ function ProfileCard({ profile, isPending, onSaved, onReset }) {
                 </div>
                 <span className="somm-range-dash">—</span>
                 <div className="somm-range-field">
-                  <label>Until</label>
+                  <label>{t('somm.maturity.untilLabel')}</label>
                   <input
                     type="number" min="1900" max="2200"
                     placeholder={!isNaN(vintageInt) ? String(vintageInt + 22) : 'Year'}
@@ -311,10 +314,10 @@ function ProfileCard({ profile, isPending, onSaved, onReset }) {
           <MaturityPreview form={form} vintageInt={vintageInt} />
 
           <div className="form-group" style={{ marginTop: '1rem' }}>
-            <label>Sommelier notes <span className="somm-year-hint">(optional)</span></label>
+            <label>{t('somm.maturity.sommNotes')} <span className="somm-year-hint">{t('somm.maturity.sommNotesOptional')}</span></label>
             <textarea
               rows={3}
-              placeholder="Tasting notes, aging potential, drinking recommendations…"
+              placeholder={t('somm.maturity.sommNotesPlaceholder')}
               value={form.sommNotes}
               onChange={set('sommNotes')}
             />
@@ -322,18 +325,18 @@ function ProfileCard({ profile, isPending, onSaved, onReset }) {
 
           {profile.setBy && (
             <p className="somm-set-by">
-              Last reviewed by <strong>{profile.setBy.username}</strong>
+              {t('somm.maturity.lastReviewedBy')} <strong>{profile.setBy.username}</strong>
               {profile.setAt && ` on ${new Date(profile.setAt).toLocaleDateString()}`}
             </p>
           )}
 
           <div className="somm-form-actions">
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving…' : 'Mark as reviewed'}
+              {saving ? t('common.saving') : t('somm.maturity.markReviewed')}
             </button>
             {!isPending && (
               <button type="button" className="btn btn-secondary" onClick={handleReset} disabled={resetting}>
-                {resetting ? 'Resetting…' : 'Reset to pending'}
+                {resetting ? t('somm.maturity.resetting') : t('somm.maturity.resetPending')}
               </button>
             )}
           </div>
@@ -345,6 +348,7 @@ function ProfileCard({ profile, isPending, onSaved, onReset }) {
 
 // ── Live preview component ────────────────────────────────────────────────────
 function MaturityPreview({ form, vintageInt }) {
+  const { t } = useTranslation();
   const mock = {
     status:     'reviewed',
     earlyFrom:  form.earlyFrom  ? parseInt(form.earlyFrom)  : null,
@@ -363,7 +367,7 @@ function MaturityPreview({ form, vintageInt }) {
 
   return (
     <div className={`somm-preview somm-preview--${phase.cls}`}>
-      <span className="somm-preview-label">Status today ({CURRENT_YEAR}):</span>
+      <span className="somm-preview-label">{t('somm.maturity.statusToday', { year: CURRENT_YEAR })}</span>
       <span className={`maturity-badge maturity-badge--${phase.cls}`}>{phase.label}</span>
     </div>
   );

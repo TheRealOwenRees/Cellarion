@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import './Auth.css';
 
@@ -12,6 +13,7 @@ const Auth = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const { t } = useTranslation();
   const { login, register } = useAuth();
 
   const handleChange = (e) => {
@@ -50,44 +52,44 @@ const Auth = () => {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h2>{isLogin ? 'Login' : 'Register'}</h2>
+        <h2>{isLogin ? t('auth.login') : t('auth.register')}</h2>
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Username:</label>
+            <label>{t('auth.username')}</label>
             <input
               type="text"
               name="username"
               value={formData.username}
               onChange={handleChange}
               required
-              placeholder="Enter username"
+              placeholder={t('auth.usernamePlaceholder')}
             />
           </div>
 
           {!isLogin && (
             <div className="form-group">
-              <label>Email:</label>
+              <label>{t('auth.email')}</label>
               <input
                 type="email"
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
                 required
-                placeholder="Enter email"
+                placeholder={t('auth.emailPlaceholder')}
               />
             </div>
           )}
 
           <div className="form-group">
-            <label>Password:</label>
+            <label>{t('auth.password')}</label>
             <input
               type="password"
               name="password"
               value={formData.password}
               onChange={handleChange}
               required
-              placeholder="Enter password (min 6 chars)"
+              placeholder={t('auth.passwordPlaceholder')}
               minLength="6"
             />
           </div>
@@ -95,15 +97,15 @@ const Auth = () => {
           {error && <div className="error-message">{error}</div>}
 
           <button type="submit" disabled={loading}>
-            {loading ? 'Please wait...' : (isLogin ? 'Login' : 'Register')}
+            {loading ? t('auth.pleaseWait') : (isLogin ? t('auth.login') : t('auth.register'))}
           </button>
         </form>
 
         <div className="toggle-mode">
           <p>
-            {isLogin ? "Don't have an account? " : 'Already have an account? '}
+            {isLogin ? t('auth.noAccount') : t('auth.alreadyHaveAccount')}
             <button type="button" onClick={toggleMode} className="link-button">
-              {isLogin ? 'Register' : 'Login'}
+              {isLogin ? t('auth.register') : t('auth.login')}
             </button>
           </p>
         </div>

@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { getDrinkStatus, formatDrinkDate } from '../utils/drinkStatus';
 import './DrinkAlerts.css';
 
 const STATUS_CONFIG = {
-  overdue: { label: 'Overdue', description: 'Past the drink-before date — open these soon!', className: 'overdue' },
-  soon:    { label: 'Drink Soon', description: 'Within 90 days of the drink-before date', className: 'soon' },
-  inWindow:{ label: 'In Drinking Window', description: 'Currently at their best', className: 'inWindow' },
-  notReady:{ label: 'Not Ready Yet', description: 'Still developing — hold off for now', className: 'notReady' },
+  overdue: { className: 'overdue' },
+  soon:    { className: 'soon' },
+  inWindow:{ className: 'inWindow' },
+  notReady:{ className: 'notReady' },
 };
 
 function DrinkAlerts() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const { apiFetch } = useAuth();
   const [cellar, setCellar] = useState(null);
@@ -57,7 +59,7 @@ function DrinkAlerts() {
     }
   };
 
-  if (loading) return <div className="loading">Loading drink alerts...</div>;
+  if (loading) return <div className="loading">{t('drinkAlerts.loadingAlerts')}</div>;
   if (error) return <div className="alert alert-error">{error}</div>;
 
   const totalAlerts = (grouped.overdue?.length || 0) + (grouped.soon?.length || 0);
@@ -66,14 +68,14 @@ function DrinkAlerts() {
     <div className="drink-alerts-page">
       <div className="page-header">
         <div>
-          <Link to={`/cellars/${id}`} className="back-link">← Back to {cellar?.name}</Link>
+          <Link to={`/cellars/${id}`} className="back-link">{t('drinkAlerts.backTo', { cellarName: cellar?.name })}</Link>
           <h1 style={cellar?.userColor ? { borderLeft: `4px solid ${cellar.userColor}`, paddingLeft: '0.75rem' } : {}}>
-            Drink Alerts
+            {t('drinkAlerts.title')}
           </h1>
           <p className="page-subtitle">
             {totalAlerts > 0
-              ? `${totalAlerts} bottle${totalAlerts > 1 ? 's' : ''} need${totalAlerts === 1 ? 's' : ''} attention`
-              : 'All bottles are on track'}
+              ? t('drinkAlerts.needsAttention', { count: totalAlerts })
+              : t('drinkAlerts.allOnTrack')}
           </p>
         </div>
       </div>
@@ -85,7 +87,7 @@ function DrinkAlerts() {
           return (
             <div key={key} className={`alert-summary-pill ${cfg.className} ${count === 0 ? 'empty' : ''}`}>
               <span className="pill-count">{count}</span>
-              <span className="pill-label">{cfg.label}</span>
+              <span className="pill-label">{t(`drinkAlerts.${key}Label`)}</span>
             </div>
           );
         })}
@@ -98,8 +100,8 @@ function DrinkAlerts() {
         return (
           <section key={key} className={`alert-section ${cfg.className}`}>
             <div className="alert-section-header">
-              <h2>{cfg.label} <span className="section-count">({items.length})</span></h2>
-              <p>{cfg.description}</p>
+              <h2>{t(`drinkAlerts.${key}Label`)} <span className="section-count">({items.length})</span></h2>
+              <p>{t(`drinkAlerts.${key}Desc`)}</p>
             </div>
             <div className="alert-bottles">
               {items.map(({ bottle, status }) => (
@@ -114,8 +116,8 @@ function DrinkAlerts() {
       {grouped.noDates?.length > 0 && (
         <section className="alert-section noDates">
           <div className="alert-section-header">
-            <h2>No Drink Window Set <span className="section-count">({grouped.noDates.length})</span></h2>
-            <p>These bottles have no drink window. Open each cellar bottle to set one.</p>
+            <h2>{t('drinkAlerts.noDatesLabel')} <span className="section-count">({grouped.noDates.length})</span></h2>
+            <p>{t('drinkAlerts.noDatesDesc')}</p>
           </div>
           <div className="alert-bottles">
             {grouped.noDates.map(({ bottle }) => (
@@ -129,6 +131,7 @@ function DrinkAlerts() {
 }
 
 function BottleAlertCard({ bottle, status }) {
+  const { t } = useTranslation();
   const wine = bottle.wineDefinition;
   return (
     <div className={`alert-bottle-card ${status ? status.status : 'noDates'}`}>
@@ -142,20 +145,20 @@ function BottleAlertCard({ bottle, status }) {
           />
         )}
         <div className="alert-bottle-info">
-          <h3>{wine?.name || 'Unknown Wine'}</h3>
+          <h3>{wine?.name || t('common.unknownWine')}</h3>
           <p className="alert-producer">{wine?.producer}</p>
-          <p className="alert-vintage">Vintage: {bottle.vintage}</p>
+          <p className="alert-vintage">{t('drinkAlerts.vintageLabel')} {bottle.vintage}</p>
         </div>
       </div>
       <div className="alert-bottle-window">
         {(bottle.drinkFrom || bottle.drinkBefore) ? (
           <>
-            {bottle.drinkFrom && <span>From {formatDrinkDate(bottle.drinkFrom)}</span>}
+            {bottle.drinkFrom && <span>{t('drinkAlerts.fromLabel')}{formatDrinkDate(bottle.drinkFrom)}</span>}
             {bottle.drinkFrom && bottle.drinkBefore && <span className="arrow"> → </span>}
-            {bottle.drinkBefore && <span>Before {formatDrinkDate(bottle.drinkBefore)}</span>}
+            {bottle.drinkBefore && <span>{t('drinkAlerts.beforeLabel')}{formatDrinkDate(bottle.drinkBefore)}</span>}
           </>
         ) : (
-          <span className="no-dates-text">No dates set</span>
+          <span className="no-dates-text">{t('drinkAlerts.noDatesText')}</span>
         )}
         {status && (
           <span className={`drink-status-pill ${status.status}`}>{status.label}</span>

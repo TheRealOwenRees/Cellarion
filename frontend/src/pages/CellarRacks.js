@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import './CellarRacks.css';
 
 function CellarRacks() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const { apiFetch } = useAuth();
   const [searchParams] = useSearchParams();
@@ -116,7 +118,7 @@ function CellarRacks() {
 
   // --- delete rack ---
   const handleDeleteRack = async (rackId) => {
-    if (!window.confirm('Delete this rack and all its slot assignments?')) return;
+    if (!window.confirm(t('racks.deleteRackConfirm'))) return;
     const res = await apiFetch(`/api/racks/${rackId}`, { method: 'DELETE' });
     if (res.ok) {
       const remaining = racks.filter(r => r._id !== rackId);
@@ -181,7 +183,7 @@ function CellarRacks() {
     }
   };
 
-  if (loading) return <div className="loading">Loading racks...</div>;
+  if (loading) return <div className="loading">{t('racks.loadingRacks')}</div>;
   if (error)   return <div className="alert alert-error">{error}</div>;
 
   const rack = racks.find(r => r._id === selectedRackId) || racks[0];
@@ -191,35 +193,35 @@ function CellarRacks() {
     <div className="cellar-racks-page">
       <div className="page-header">
         <div>
-          <Link to={`/cellars/${id}`} className="back-link">&larr; Back to Cellar</Link>
+          <Link to={`/cellars/${id}`} className="back-link">{t('racks.backToCellar')}</Link>
           <h1 style={cellar?.userColor ? { borderLeft: `4px solid ${cellar.userColor}`, paddingLeft: '0.75rem' } : {}}>
             {cellar?.name}
           </h1>
-          <p className="cellar-description">Storage Racks</p>
+          <p className="cellar-description">{t('racks.title')}</p>
         </div>
         {canEdit && (
           <button className="btn btn-primary" onClick={() => setShowNewRack(v => !v)}>
-            {showNewRack ? 'Cancel' : '+ New Rack'}
+            {showNewRack ? t('common.cancel') : t('racks.newRack')}
           </button>
         )}
       </div>
 
       {canEdit && showNewRack && (
         <form className="card new-rack-form" onSubmit={handleCreateRack}>
-          <h3>New Rack</h3>
+          <h3>{t('racks.newRackTitle')}</h3>
           <div className="new-rack-fields">
             <div className="form-group">
-              <label>Name</label>
+              <label>{t('racks.nameLabel')}</label>
               <input
                 type="text"
                 value={newRack.name}
                 onChange={e => setNewRack({ ...newRack, name: e.target.value })}
-                placeholder="e.g. Rack A"
+                placeholder={t('racks.namePlaceholder')}
                 required
               />
             </div>
             <div className="form-group">
-              <label>Rows</label>
+              <label>{t('racks.rowsLabel')}</label>
               <input
                 type="number"
                 min={1} max={20}
@@ -228,7 +230,7 @@ function CellarRacks() {
               />
             </div>
             <div className="form-group">
-              <label>Columns</label>
+              <label>{t('racks.colsLabel')}</label>
               <input
                 type="number"
                 min={1} max={20}
@@ -237,7 +239,7 @@ function CellarRacks() {
               />
             </div>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Creating\u2026' : 'Create Rack'}
+              {saving ? t('racks.creating') : t('racks.createRack')}
             </button>
           </div>
         </form>
@@ -245,7 +247,7 @@ function CellarRacks() {
 
       {racks.length === 0 ? (
         <div className="empty-state">
-          <p>No racks yet. Create one to start mapping your cellar.</p>
+          <p>{t('racks.noRacks')}</p>
         </div>
       ) : (
         <>
@@ -322,6 +324,7 @@ function CellarRacks() {
 
 // ---- Sub-component: rack grid (no popup rendering, just slots) ----
 function RackGrid({ rack, canEdit, activeRackId, activePosition, highlightPos, onSlotClick, onDelete }) {
+  const { t } = useTranslation();
   const total = rack.rows * rack.cols;
 
   const slotMap = {};
@@ -336,7 +339,7 @@ function RackGrid({ rack, canEdit, activeRackId, activePosition, highlightPos, o
           <h2>{rack.name}</h2>
           <span className="rack-dims">{rack.rows} rows &times; {rack.cols} cols &mdash; {rack.slots.length}/{total} filled</span>
         </div>
-        {canEdit && <button className="btn btn-danger btn-small" onClick={onDelete}>Delete Rack</button>}
+        {canEdit && <button className="btn btn-danger btn-small" onClick={onDelete}>{t('racks.deleteRack')}</button>}
       </div>
 
       <div
@@ -369,6 +372,7 @@ function RackGrid({ rack, canEdit, activeRackId, activePosition, highlightPos, o
 
 // ---- Content for empty slot: pick a bottle to place ----
 function EmptySlotContent({ position, bottles, onAssign, onClose }) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
 
   const filtered = bottles.filter(b => {
@@ -382,20 +386,20 @@ function EmptySlotContent({ position, bottles, onAssign, onClose }) {
   return (
     <>
       <div className="slot-popup-header">
-        <span className="slot-popup-title">Slot {position} &mdash; Place a bottle</span>
+        <span className="slot-popup-title">{t('racks.slotPlaceBottle', { position })}</span>
         <button className="slot-popup-close" onClick={onClose}>&times;</button>
       </div>
       <input
         type="text"
         className="slot-search"
-        placeholder="Search wines..."
+        placeholder={t('racks.searchWines')}
         value={search}
         onChange={e => setSearch(e.target.value)}
         autoFocus
       />
       <div className="slot-bottle-list">
         {filtered.length === 0 ? (
-          <p className="slot-empty-msg">No unplaced bottles found</p>
+          <p className="slot-empty-msg">{t('racks.noUnplacedBottles')}</p>
         ) : (
           filtered.map(b => (
             <div
@@ -421,13 +425,14 @@ function EmptySlotContent({ position, bottles, onAssign, onClose }) {
 
 // ---- Content for filled slot: show bottle info + actions ----
 function FilledSlotContent({ position, slot, canEdit, onRemoveFromRack, onConsume, onClose }) {
+  const { t } = useTranslation();
   const bottle = slot.bottle;
   const wine = bottle?.wineDefinition;
 
   return (
     <>
       <div className="slot-popup-header">
-        <span className="slot-popup-title">Slot {position}</span>
+        <span className="slot-popup-title">{t('racks.slotTitle', { position })}</span>
         <button className="slot-popup-close" onClick={onClose}>&times;</button>
       </div>
 
@@ -454,10 +459,10 @@ function FilledSlotContent({ position, slot, canEdit, onRemoveFromRack, onConsum
       {canEdit && (
         <div className="slot-popup-actions">
           <button className="btn btn-secondary btn-small" onClick={onRemoveFromRack}>
-            Remove from rack
+            {t('racks.removeFromRack')}
           </button>
           <button className="btn btn-consume btn-small" onClick={onConsume}>
-            Remove
+            {t('racks.remove')}
           </button>
         </div>
       )}
@@ -467,6 +472,7 @@ function FilledSlotContent({ position, slot, canEdit, onRemoveFromRack, onConsum
 
 // ---- Consume / remove modal ----
 function ConsumeModal({ onSubmit, onCancel }) {
+  const { t } = useTranslation();
   const [reason, setReason] = useState('drank');
   const [note, setNote]     = useState('');
   const [rating, setRating] = useState('');
@@ -483,24 +489,24 @@ function ConsumeModal({ onSubmit, onCancel }) {
     <div className="slot-modal-overlay" onClick={onCancel}>
       <div className="slot-modal consume-modal-box" onClick={e => e.stopPropagation()}>
         <div className="slot-popup-header">
-          <span className="slot-popup-title">Remove Bottle</span>
+          <span className="slot-popup-title">{t('bottleDetail.removeBottleTitle')}</span>
           <button className="slot-popup-close" onClick={onCancel}>&times;</button>
         </div>
         <form onSubmit={handleSubmit} className="consume-modal-form">
           <div className="form-group">
-            <label>Reason</label>
+            <label>{t('common.reason')}</label>
             <select value={reason} onChange={e => setReason(e.target.value)}>
-              <option value="drank">Drank it</option>
-              <option value="gifted">Gifted</option>
-              <option value="sold">Sold</option>
-              <option value="other">Other</option>
+              <option value="drank">{t('bottleDetail.drinkReason')}</option>
+              <option value="gifted">{t('bottleDetail.giftedReason')}</option>
+              <option value="sold">{t('bottleDetail.soldReason')}</option>
+              <option value="other">{t('bottleDetail.otherReason')}</option>
             </select>
           </div>
           {reason === 'drank' && (
             <div className="form-group">
-              <label>Rating (optional)</label>
+              <label>{t('bottleDetail.ratingOptional')}</label>
               <select value={rating} onChange={e => setRating(e.target.value)}>
-                <option value="">&mdash; no rating &mdash;</option>
+                <option value="">&mdash; {t('bottleDetail.noRatingOption')} &mdash;</option>
                 <option value="1">&#9733; 1 star</option>
                 <option value="2">&#9733;&#9733; 2 stars</option>
                 <option value="3">&#9733;&#9733;&#9733; 3 stars</option>
@@ -510,7 +516,7 @@ function ConsumeModal({ onSubmit, onCancel }) {
             </div>
           )}
           <div className="form-group">
-            <label>Note (optional)</label>
+            <label>{t('bottleDetail.noteOptional')}</label>
             <textarea
               value={note}
               onChange={e => setNote(e.target.value)}
@@ -519,9 +525,9 @@ function ConsumeModal({ onSubmit, onCancel }) {
             />
           </div>
           <div className="consume-modal-actions">
-            <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
+            <button type="button" className="btn btn-secondary" onClick={onCancel}>{t('common.cancel')}</button>
             <button type="submit" className="btn btn-consume" disabled={saving}>
-              {saving ? 'Saving\u2026' : 'Confirm'}
+              {saving ? t('common.saving') : t('common.confirm')}
             </button>
           </div>
         </form>
