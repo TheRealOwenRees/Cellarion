@@ -7,6 +7,7 @@ const WineDefinition = require('../models/WineDefinition');
 const WineVintageProfile = require('../models/WineVintageProfile');
 const { getCellarRole } = require('../utils/cellarAccess');
 const { logAudit } = require('../services/audit');
+const { getOrCreateDailySnapshot, getSnapshotForDate } = require('../utils/exchangeRates');
 
 // Strip HTML tags from user-supplied text to prevent XSS in rendered output
 const stripHtml = (str) => (str ? str.replace(/<[^>]*>/g, '').trim() : str);
@@ -53,6 +54,13 @@ router.post('/', async (req, res) => {
       return res.status(404).json({ error: 'Wine definition not found' });
     }
 
+    // Ensure today's rate snapshot exists so historical conversion works later.
+    // Non-fatal: price still saves if the API call fails.
+    const priceSetAt = (price !== undefined && price !== null && price !== '')
+      ? new Date()
+      : undefined;
+    if (priceSetAt) await getOrCreateDailySnapshot();
+
     // Bottle always belongs to the cellar owner (clean ownership model)
     const bottle = new Bottle({
       cellar,
@@ -61,6 +69,7 @@ router.post('/', async (req, res) => {
       vintage: vintage || 'NV',
       price,
       currency: currency || 'USD',
+      priceSetAt,
       bottleSize: bottleSize || '750ml',
       purchaseDate,
       purchaseLocation: stripHtml(purchaseLocation),
@@ -125,8 +134,17 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Bottle not found' });
     }
 
+    // Join the historical rate snapshot for the date this price was entered.
+    // Exposed as priceCurrencyRates so the frontend needs no changes.
+    const bottleObj = bottle.toObject();
+    if (bottle.priceSetAt) {
+      const date = bottle.priceSetAt.toISOString().slice(0, 10);
+      const snapshot = await getSnapshotForDate(date);
+      if (snapshot) bottleObj.priceCurrencyRates = snapshot.rates;
+    }
+
     const ucEntry = cellar.userColors?.find(uc => uc.user.toString() === req.user.id.toString());
-    res.json({ bottle, userRole: role, cellarColor: ucEntry?.color || null });
+    res.json({ bottle: bottleObj, userRole: role, cellarColor: ucEntry?.color || null });
   } catch (error) {
     console.error('Get bottle error:', error);
     res.status(500).json({ error: 'Failed to get bottle' });
@@ -178,6 +196,17 @@ router.put('/:id', async (req, res) => {
         bottle[field] = newVal;
       }
     });
+
+    // Re-anchor the price date whenever price or currency is being updated,
+    // and ensure today's rate snapshot exists for future lookups.
+    if ('price' in req.body || 'currency' in req.body) {
+      if (bottle.price !== null && bottle.price !== undefined) {
+        bottle.priceSetAt = new Date();
+        await getOrCreateDailySnapshot();
+      } else {
+        bottle.priceSetAt = undefined;
+      }
+    }
 
     await bottle.save();
     await bottle.populate({

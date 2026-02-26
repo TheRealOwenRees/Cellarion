@@ -3,6 +3,7 @@ const { requireAuth, requireSommOrAdmin } = require('../../middleware/auth');
 const WineVintagePrice = require('../../models/WineVintagePrice');
 const Bottle = require('../../models/Bottle');
 const WineDefinition = require('../../models/WineDefinition');
+const { getOrCreateDailySnapshot, getSnapshotsForDates } = require('../../utils/exchangeRates');
 
 const router = express.Router();
 
@@ -37,7 +38,7 @@ router.get('/queue', requireSommOrAdmin, async (req, res) => {
       {
         $group: {
           _id: { wineDefinition: '$wineDefinition', vintage: '$vintage' },
-          latestSetAt: { $max: '$setAt' },
+          latestSetAt:    { $last: '$setAt' },
           latestPrice:    { $last: '$price' },
           latestCurrency: { $last: '$currency' },
           latestSource:   { $last: '$source' }
@@ -90,7 +91,25 @@ router.get('/queue', requireSommOrAdmin, async (req, res) => {
       return new Date(a.latestPrice.setAt) - new Date(b.latestPrice.setAt);
     });
 
-    res.json({ queue });
+    // Step 5: batch-fetch rate snapshots for all latestPrice dates and attach them.
+    // This keeps conversion time-anchored without storing rates on every price document.
+    const queueDates = [...new Set(
+      queue
+        .filter(item => item.latestPrice?.setAt)
+        .map(item => new Date(item.latestPrice.setAt).toISOString().slice(0, 10))
+    )];
+    const snapshotMap = await getSnapshotsForDates(queueDates);
+
+    const enrichedQueue = queue.map(item => {
+      if (!item.latestPrice?.setAt) return item;
+      const date = new Date(item.latestPrice.setAt).toISOString().slice(0, 10);
+      return {
+        ...item,
+        latestPrice: { ...item.latestPrice, exchangeRates: snapshotMap.get(date) || null }
+      };
+    });
+
+    res.json({ queue: enrichedQueue });
   } catch (error) {
     console.error('Price queue error:', error);
     res.status(500).json({ error: 'Failed to load price queue' });
@@ -114,7 +133,16 @@ router.get('/lookup', async (req, res) => {
       .sort({ setAt: -1 })
       .lean();
 
-    res.json({ history });
+    // Batch-fetch rate snapshots for all entry dates and attach as exchangeRates.
+    const dates = [...new Set(history.map(e => e.setAt.toISOString().slice(0, 10)))];
+    const snapshotMap = await getSnapshotsForDates(dates);
+
+    const enriched = history.map(e => ({
+      ...e,
+      exchangeRates: snapshotMap.get(e.setAt.toISOString().slice(0, 10)) || null
+    }));
+
+    res.json({ history: enriched });
   } catch (error) {
     console.error('Price lookup error:', error);
     res.status(500).json({ error: 'Failed to load price history' });
@@ -146,6 +174,10 @@ router.post('/', requireSommOrAdmin, async (req, res) => {
     if (!wineExists) {
       return res.status(404).json({ error: 'Wine definition not found' });
     }
+
+    // Ensure today's rate snapshot exists so the setAt date can be used for
+    // time-anchored conversions later. Non-fatal if the API call fails.
+    await getOrCreateDailySnapshot();
 
     const entry = new WineVintagePrice({
       wineDefinition,

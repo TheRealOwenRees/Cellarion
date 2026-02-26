@@ -37,3 +37,15 @@ export function convertAmount(amount, from, to, rates) {
   return Math.round(inUSD * toRate * 100) / 100;
 }
 
+/**
+ * Convert using historically-anchored rates stored at the time of price entry.
+ * Falls back to live rates when no historical snapshot is available.
+ * This ensures that past values are never distorted by later exchange-rate movements.
+ */
+export function convertAmountHistorical(amount, from, to, historicalRates, fallbackRates = null) {
+  if (!from || !to || from === to) return null;
+  const result = convertAmount(amount, from, to, historicalRates);
+  if (result !== null) return result;
+  return convertAmount(amount, from, to, fallbackRates);
+}
+

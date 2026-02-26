@@ -37,6 +37,11 @@ const bottleSchema = new mongoose.Schema({
     trim: true,
     maxlength: [10, 'Currency code too long']
   },
+  // Date ('YYYY-MM-DD') when the price was last entered or confirmed.
+  // Used to look up the ExchangeRateSnapshot for time-anchored currency conversion.
+  priceSetAt: {
+    type: Date
+  },
   bottleSize: {
     type: String,
     default: '750ml',

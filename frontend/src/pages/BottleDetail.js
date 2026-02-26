@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth, usePlan } from '../contexts/AuthContext';
 import { getDrinkStatus, formatDrinkDate, toInputDate, toMonthInput, monthToLastDay } from '../utils/drinkStatus';
-import { fetchRates, convertAmount } from '../utils/currency';
+import { fetchRates, convertAmount, convertAmountHistorical } from '../utils/currency';
 import './BottleDetail.css';
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -245,8 +245,13 @@ function ViewDetails({ bottle, rackInfo, cellarId, drinkStatus, vintageProfile, 
             <span className="bd-detail-value">
               {bottle.price} {bottle.currency}
               {(() => {
-                const c = convertAmount(bottle.price, bottle.currency, userCurrency, rates);
-                return c !== null ? <span className="bd-detail-converted"> ≈ {c.toLocaleString()} {userCurrency}</span> : null;
+                const c = convertAmountHistorical(bottle.price, bottle.currency, userCurrency, bottle.priceCurrencyRates, rates);
+                return c !== null ? (
+                  <span
+                    className="bd-detail-converted"
+                    title={t('bottleDetail.priceAtEntryTooltip')}
+                  > ≈ {c.toLocaleString()} {userCurrency}</span>
+                ) : null;
               })()}
             </span>
           </div>
@@ -680,8 +685,8 @@ function PriceHistoryTimeline({ history, rates, userCurrency }) {
     change = { diff, pct, up: diff >= 0 };
   }
 
-  // Convert latest price to user's preferred currency (null if same or unavailable)
-  const latestConverted = convertAmount(latest.price, latest.currency, userCurrency, rates);
+  // Convert latest price using historically-anchored rates (rate at time of recording)
+  const latestConverted = convertAmountHistorical(latest.price, latest.currency, userCurrency, latest.exchangeRates, rates);
 
   return (
     <div className="bd-price-history">
@@ -707,7 +712,7 @@ function PriceHistoryTimeline({ history, rates, userCurrency }) {
       {history.length > 1 && (
         <div className="bd-price-timeline">
           {history.slice(1).map((entry, i) => {
-            const converted = convertAmount(entry.price, entry.currency, userCurrency, rates);
+            const converted = convertAmountHistorical(entry.price, entry.currency, userCurrency, entry.exchangeRates, rates);
             return (
               <div key={i} className="bd-price-entry">
                 <span className="bd-price-entry__price">{entry.price.toLocaleString()} {entry.currency}</span>
