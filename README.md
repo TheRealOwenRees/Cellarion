@@ -258,6 +258,14 @@ Uses Jest. Covers the wine normalisation/similarity algorithms, cellar access co
 
 ---
 
+
+## Reporting a Vulnerability
+
+Please report security issues privately to:
+github@cellarion.app
+
+---
+
 ## License
 
 [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE)
