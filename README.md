@@ -282,4 +282,4 @@ You are free to use, modify, and self-host this software. If you run a modified 
 
 ## Acknowledgements
 
-Portions of this codebase were developed with assistance from [Claude Code](https://claude.ai/claude-code) by Anthropic.
+This codebase were developed together with assistance from [Claude Code](https://claude.ai/claude-code) by Anthropic.
