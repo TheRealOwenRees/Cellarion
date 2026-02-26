@@ -13,6 +13,7 @@ import AdminTaxonomy from './pages/AdminTaxonomy';
 import AdminImages from './pages/AdminImages';
 import AdminAudit from './pages/AdminAudit';
 import AdminUsers from './pages/AdminUsers';
+import AdminSettings from './pages/AdminSettings';
 import CellarAudit from './pages/CellarAudit';
 import CellarRacks from './pages/CellarRacks';
 import DrinkAlerts from './pages/DrinkAlerts';
@@ -196,6 +197,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute requireAdmin>
             <Layout><AdminUsers /></Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/settings"
+        element={
+          <ProtectedRoute requireAdmin>
+            <Layout><AdminSettings /></Layout>
           </ProtectedRoute>
         }
       />

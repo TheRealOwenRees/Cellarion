@@ -51,6 +51,7 @@
     "imageReview": "Image Review",
     "auditLog": "Audit Log",
     "users": "Users",
+    "adminSettings": "Settings",
     "settings": "Settings",
     "logout": "Logout",
     "toggleNav": "Toggle navigation",
@@ -496,6 +497,22 @@
       "page": "Page {{current}} of {{total}}",
       "previousBtn": "Previous",
       "nextBtn": "Next"
+    },
+    "settings": {
+      "title": "Admin: Settings",
+      "loading": "Loading settings…",
+      "rateLimits": "Rate Limits",
+      "rateLimitsHint": "Maximum number of requests per IP address per 15-minute window. Changes take effect immediately without a server restart.",
+      "apiLimiter": "Global API Limiter",
+      "writeLimiter": "Write Operations Limiter",
+      "authLimiter": "Auth Limiter",
+      "perWindow": "req / 15 min",
+      "default": "Default: {{count}}",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Settings saved",
+      "errorLoad": "Failed to load settings",
+      "errorSave": "Failed to save settings"
     }
   },
 

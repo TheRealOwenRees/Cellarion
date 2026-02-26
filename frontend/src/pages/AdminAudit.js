@@ -5,10 +5,11 @@ import './AdminAudit.css';
 
 // Color category for each action prefix
 const ACTION_CATEGORY = {
-  'auth':  'auth',
+  'auth':   'auth',
   'bottle': 'bottle',
   'cellar': 'cellar',
-  'admin':  'admin'
+  'admin':  'admin',
+  'system': 'system'
 };
 
 function getCategory(action) {
@@ -41,7 +42,8 @@ const ACTION_OPTIONS = [
   'admin.wine.create', 'admin.wine.update', 'admin.wine.delete',
   'admin.request.resolve', 'admin.request.reject',
   'admin.taxonomy.create', 'admin.taxonomy.delete',
-  'admin.image.approve', 'admin.image.reject', 'admin.image.assign'
+  'admin.image.approve', 'admin.image.reject', 'admin.image.assign',
+  'system.rate_limit_exceeded'
 ];
 
 function AdminAudit() {

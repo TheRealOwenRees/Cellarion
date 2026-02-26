@@ -80,6 +80,7 @@
 .audit-row--bottle  { background: rgba(107, 158, 120, 0.03); }
 .audit-row--cellar  { background: rgba(200, 168, 126, 0.03); }
 .audit-row--admin   { background: rgba(123, 158, 136, 0.04); }
+.audit-row--system  { background: rgba(180, 100,  60, 0.03); }
 
 .audit-row:hover td { background: rgba(255,255,255,0.03); }
 
@@ -98,6 +99,7 @@
 .audit-action-badge--bottle { background: rgba(107,158,120,0.15); color: #6B9E78; }
 .audit-action-badge--cellar { background: rgba(200,168,126,0.15); color: #C8A87E; }
 .audit-action-badge--admin  { background: rgba(123,158,136,0.15); color: #7B9E88; }
+.audit-action-badge--system { background: rgba(180,100,60,0.15);  color: #C47840; }
 .audit-action-badge--other  { background: rgba(224,112,96,0.15);  color: #E07060; }
 
 /* ── Cells ── */

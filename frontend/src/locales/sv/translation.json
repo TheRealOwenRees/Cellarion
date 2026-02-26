@@ -51,6 +51,7 @@
     "imageReview": "Bildgranskning",
     "auditLog": "Aktivitetslogg",
     "users": "Användare",
+    "adminSettings": "Inställningar",
     "settings": "Inställningar",
     "logout": "Logga ut",
     "toggleNav": "Växla navigering",
@@ -496,6 +497,22 @@
       "page": "Sida {{current}} av {{total}}",
       "previousBtn": "Föregående",
       "nextBtn": "Nästa"
+    },
+    "settings": {
+      "title": "Admin: Inställningar",
+      "loading": "Laddar inställningar…",
+      "rateLimits": "Hastighetsbegränsningar",
+      "rateLimitsHint": "Maximalt antal förfrågningar per IP-adress per 15-minutersfönster. Ändringar träder i kraft omedelbart utan omstart av servern.",
+      "apiLimiter": "Globalt API-begränsare",
+      "writeLimiter": "Skrivoperationsbegränsare",
+      "authLimiter": "Autentiseringsbegränsare",
+      "perWindow": "förfr. / 15 min",
+      "default": "Standard: {{count}}",
+      "save": "Spara",
+      "saving": "Sparar…",
+      "saved": "Inställningar sparade",
+      "errorLoad": "Det gick inte att läsa in inställningar",
+      "errorSave": "Det gick inte att spara inställningar"
     }
   },
 
