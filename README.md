@@ -13,7 +13,7 @@ The hosted version runs the same open-source codebase as this repository, mainta
 ## Stack
 
 - **MongoDB 7** — Database
-- **Express 5** — Backend API
+- **Express 4** — Backend API
 - **React 19** — Frontend
 - **Node.js 20** — Runtime
 - **Meilisearch** — Fuzzy search
@@ -145,7 +145,7 @@ Cellarion/
 | **WineDefinition** | Vintage-neutral wine entry in the shared registry. Admins create and manage these. |
 | **Bottle** | A user's bottle: references a WineDefinition and adds vintage, price, rating, notes, rack location. |
 | **Cellar** | Named container of Bottles, owned by a user. Can be shared with other users. |
-| **Rack** | X×X grid within a Cellar for physical bottle placement. |
+| **Rack** | 8×4 grid within a Cellar for physical bottle placement. |
 | **WineRequest** | User-submitted wine suggestion. Admins review and fulfil by creating a WineDefinition. |
 | **Taxonomy** | Admin-managed Countries, Regions, and Grapes to prevent free-text proliferation. |
 
@@ -178,11 +178,17 @@ Cellarion/
 | POST | `/` | Add bottle to cellar |
 | DELETE | `/:id` | Remove bottle |
 
-### Wine Registry — `/api/wines` *(public read)*
+### Wine Registry — `/api/wines` *(auth required)*
+
+All wine registry endpoints require a valid JWT. Behaviour differs by role:
+
+- **Regular users** — `search` param is mandatory; results capped at 10.
+- **Admin / Sommelier** — full browse without a search term; no result cap.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/` | Search/filter wines. Params: `search`, `type`, `country`, `region`, `sort`, `limit`, `offset` |
+| GET | `/` | Search/filter wines. Params: `search`, `type`, `country`, `region`, `grapes`, `sort`, `limit`, `offset` |
+| GET | `/:id` | Get a single wine definition by ID |
 
 ### Admin — `/api/admin/*` *(admin role required)*
 
@@ -271,3 +277,9 @@ github@cellarion.app
 [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE)
 
 You are free to use, modify, and self-host this software. If you run a modified version as a network service, you must make your source code available to users of that service. Commercial hosting of this software as a managed service requires a separate agreement.
+
+---
+
+## Acknowledgements
+
+Portions of this codebase were developed with assistance from [Claude Code](https://claude.ai/claude-code) by Anthropic.
