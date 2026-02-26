@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { usePlan } from '../contexts/AuthContext';
 import { formatLimit } from '../config/plans';
@@ -7,6 +8,7 @@ import CellarColorPicker from '../components/CellarColorPicker';
 import './Cellars.css';
 
 function Cellars() {
+  const { t } = useTranslation();
   const { apiFetch } = useAuth();
   const { plan, config } = usePlan();
   const [cellars, setCellars] = useState([]);
@@ -73,13 +75,13 @@ function Cellars() {
   };
 
   if (loading) {
-    return <div className="loading">Loading cellars...</div>;
+    return <div className="loading">{t('cellars.loadingCellars')}</div>;
   }
 
   return (
     <div className="cellars-page">
       <div className="page-header">
-        <h1>My Cellars</h1>
+        <h1>{t('cellars.title')}</h1>
         <button
           onClick={() => {
             setLimitError(null);
@@ -87,7 +89,7 @@ function Cellars() {
           }}
           className="btn btn-primary"
         >
-          {showCreateForm ? 'Cancel' : '+ New Cellar'}
+          {showCreateForm ? t('common.cancel') : t('cellars.newCellar')}
         </button>
       </div>
 
@@ -96,7 +98,7 @@ function Cellars() {
         <div className="plan-limit-notice">
           <span className="plan-limit-notice__icon">🔒</span>
           <div>
-            <strong>Cellar limit reached</strong>
+            <strong>{t('cellars.limitReached')}</strong>
             <p>
               Your <strong>{plan.charAt(0).toUpperCase() + plan.slice(1)}</strong> plan allows{' '}
               <strong>{formatLimit(config.maxCellars)} cellar{config.maxCellars === 1 ? '' : 's'}</strong>.
@@ -110,29 +112,29 @@ function Cellars() {
 
       {showCreateForm && !atLimit && (
         <div className="card create-form">
-          <h2>Create New Cellar</h2>
+          <h2>{t('cellars.createTitle')}</h2>
           <form onSubmit={handleCreateCellar}>
             <div className="form-group">
-              <label>Cellar Name *</label>
+              <label>{t('cellars.cellarName')}</label>
               <input
                 type="text"
                 value={newCellar.name}
                 onChange={(e) => setNewCellar({ ...newCellar, name: e.target.value })}
                 required
-                placeholder="e.g., Main Cellar"
+                placeholder={t('cellars.cellarNamePlaceholder')}
               />
             </div>
             <div className="form-group">
-              <label>Description</label>
+              <label>{t('common.description')}</label>
               <textarea
                 value={newCellar.description}
                 onChange={(e) => setNewCellar({ ...newCellar, description: e.target.value })}
-                placeholder="Optional description"
+                placeholder={t('cellars.descriptionPlaceholder')}
                 rows="3"
               />
             </div>
             <div className="form-group">
-              <label>Color</label>
+              <label>{t('common.color')}</label>
               <CellarColorPicker
                 value={newCellar.color}
                 onChange={color => setNewCellar({ ...newCellar, color })}
@@ -140,14 +142,14 @@ function Cellars() {
             </div>
             <div className="form-actions">
               <button type="submit" className="btn btn-primary" disabled={creating}>
-                {creating ? 'Creating...' : 'Create Cellar'}
+                {creating ? t('common.creating') : t('cellars.createBtn')}
               </button>
               <button
                 type="button"
                 onClick={() => setShowCreateForm(false)}
                 className="btn btn-secondary"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
             </div>
           </form>
@@ -156,8 +158,8 @@ function Cellars() {
 
       {cellars.length === 0 ? (
         <div className="empty-state">
-          <p>You don't have any cellars yet.</p>
-          <p>Create your first cellar to start tracking your wine collection!</p>
+          <p>{t('cellars.emptyCellars')}</p>
+          <p>{t('cellars.emptyCallToAction')}</p>
         </div>
       ) : (
         <div className="cellars-grid">
@@ -172,13 +174,13 @@ function Cellars() {
                 <h3>{cellar.name}</h3>
                 {cellar.userRole && cellar.userRole !== 'owner' && (
                   <span className={`role-badge role-badge--${cellar.userRole}`}>
-                    {cellar.userRole === 'editor' ? 'Edit' : 'View'}
+                    {cellar.userRole === 'editor' ? t('cellars.editRole') : t('cellars.viewRole')}
                   </span>
                 )}
               </div>
               {cellar.description && <p className="description">{cellar.description}</p>}
               <div className="cellar-footer">
-                <span className="view-link">View Cellar →</span>
+                <span className="view-link">{t('cellars.viewCellar')}</span>
               </div>
             </Link>
           ))}

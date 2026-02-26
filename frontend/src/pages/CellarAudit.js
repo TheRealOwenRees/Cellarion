@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import './CellarAudit.css';
 
@@ -10,15 +11,15 @@ function formatTimestamp(ts) {
   });
 }
 
-const ACTION_LABELS = {
-  'bottle.add':          'Added bottle',
-  'bottle.update':       'Updated bottle',
-  'bottle.consume':      'Consumed bottle',
-  'bottle.delete':       'Deleted bottle',
-  'cellar.delete':       'Deleted cellar',
-  'cellar.share.add':    'Shared cellar',
-  'cellar.share.update': 'Changed share role',
-  'cellar.share.remove': 'Removed share'
+const ACTION_LABEL_KEYS = {
+  'bottle.add':          'cellarAudit.actions.bottleAdd',
+  'bottle.update':       'cellarAudit.actions.bottleUpdate',
+  'bottle.consume':      'cellarAudit.actions.bottleConsume',
+  'bottle.delete':       'cellarAudit.actions.bottleDelete',
+  'cellar.delete':       'cellarAudit.actions.cellarDelete',
+  'cellar.share.add':    'cellarAudit.actions.cellarShareAdd',
+  'cellar.share.update': 'cellarAudit.actions.cellarShareUpdate',
+  'cellar.share.remove': 'cellarAudit.actions.cellarShareRemove'
 };
 
 const ACTION_ICONS = {
@@ -67,6 +68,7 @@ function formatDetail(action, detail) {
 }
 
 function CellarAudit() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const { apiFetch } = useAuth();
   const [logs, setLogs] = useState([]);
@@ -99,18 +101,18 @@ function CellarAudit() {
     <div className="cellar-audit-page">
       <div className="page-header">
         <div>
-          <Link to={`/cellars/${id}`} className="back-link">← Back to Cellar</Link>
-          <h1 style={h1Style}>{cellarName ? `${cellarName} — Audit Log` : 'Audit Log'}</h1>
-          <p className="cellar-description">Last 100 events for this cellar</p>
+          <Link to={`/cellars/${id}`} className="back-link">{t('cellarAudit.backToCellar')}</Link>
+          <h1 style={h1Style}>{cellarName ? `${cellarName} — ${t('cellarAudit.auditLogTitle')}` : t('cellarAudit.auditLogTitle')}</h1>
+          <p className="cellar-description">{t('cellarAudit.last100Events')}</p>
         </div>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
 
       {loading ? (
-        <div className="loading">Loading audit log…</div>
+        <div className="loading">{t('cellarAudit.loadingAudit')}</div>
       ) : logs.length === 0 ? (
-        <div className="empty-state"><p>No audit events yet for this cellar.</p></div>
+        <div className="empty-state"><p>{t('cellarAudit.noEvents')}</p></div>
       ) : (
         <div className="cellar-audit-list">
           {logs.map(log => {
@@ -123,7 +125,7 @@ function CellarAudit() {
                 <div className="cellar-audit-body">
                   <div className="cellar-audit-primary">
                     <span className="cellar-audit-label">
-                      {ACTION_LABELS[log.action] || log.action}
+                      {ACTION_LABEL_KEYS[log.action] ? t(ACTION_LABEL_KEYS[log.action]) : log.action}
                     </span>
                     {detail && (
                       <span className="cellar-audit-detail">— {detail}</span>

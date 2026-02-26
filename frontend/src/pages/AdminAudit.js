@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import './AdminAudit.css';
 
@@ -44,6 +45,7 @@ const ACTION_OPTIONS = [
 ];
 
 function AdminAudit() {
+  const { t } = useTranslation();
   const { apiFetch } = useAuth();
   const [logs, setLogs] = useState([]);
   const [total, setTotal] = useState(0);
@@ -94,8 +96,8 @@ function AdminAudit() {
   return (
     <div className="admin-audit-page">
       <div className="page-header">
-        <h1>Audit Log</h1>
-        <span className="audit-total">{total.toLocaleString()} events</span>
+        <h1>{t('admin.audit.title')}</h1>
+        <span className="audit-total">{t('admin.audit.events', { count: total })}</span>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
@@ -106,7 +108,7 @@ function AdminAudit() {
           value={filters.action}
           onChange={e => handleFilterChange('action', e.target.value)}
         >
-          <option value="">All Actions</option>
+          <option value="">{t('admin.audit.allActions')}</option>
           {ACTION_OPTIONS.filter(Boolean).map(a => (
             <option key={a} value={a}>{a}</option>
           ))}
@@ -132,21 +134,21 @@ function AdminAudit() {
       </div>
 
       {loading ? (
-        <div className="loading">Loading audit log…</div>
+        <div className="loading">{t('admin.audit.loadingAudit')}</div>
       ) : logs.length === 0 ? (
-        <div className="empty-state"><p>No audit events found.</p></div>
+        <div className="empty-state"><p>{t('admin.audit.noEvents')}</p></div>
       ) : (
         <>
           <div className="audit-table-wrap">
             <table className="audit-table">
               <thead>
                 <tr>
-                  <th>Timestamp</th>
-                  <th>User</th>
-                  <th>Action</th>
-                  <th>Resource</th>
-                  <th>Detail</th>
-                  <th>IP</th>
+                  <th>{t('admin.audit.timestampCol')}</th>
+                  <th>{t('admin.audit.userCol')}</th>
+                  <th>{t('admin.audit.actionCol')}</th>
+                  <th>{t('admin.audit.resourceCol')}</th>
+                  <th>{t('admin.audit.detailCol')}</th>
+                  <th>{t('admin.audit.ipCol')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -156,7 +158,7 @@ function AdminAudit() {
                     <td className="audit-user">
                       {log.actor?.userId
                         ? <><strong>{log.actor.userId.username}</strong><br/><span className="audit-email">{log.actor.userId.email}</span></>
-                        : <span className="audit-anon">anonymous</span>
+                        : <span className="audit-anon">{t('admin.audit.anonymous')}</span>
                       }
                     </td>
                     <td><ActionBadge action={log.action} /></td>
@@ -181,15 +183,15 @@ function AdminAudit() {
               disabled={page <= 1}
               onClick={() => setPage(p => p - 1)}
             >
-              ← Prev
+              {t('admin.audit.prevBtn')}
             </button>
-            <span className="audit-page-info">Page {page} of {totalPages}</span>
+            <span className="audit-page-info">{t('admin.audit.page', { current: page, total: totalPages })}</span>
             <button
               className="btn btn-secondary"
               disabled={page >= totalPages}
               onClick={() => setPage(p => p + 1)}
             >
-              Next →
+              {t('admin.audit.nextBtn')}
             </button>
           </div>
         </>

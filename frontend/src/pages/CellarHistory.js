@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import './CellarHistory.css';
 
 const REASON_CONFIG = {
-  drank:  { label: 'Drank',   icon: '🍷', className: 'drank' },
-  gifted: { label: 'Gifted',  icon: '🎁', className: 'gifted' },
-  sold:   { label: 'Sold',    icon: '💰', className: 'sold' },
-  other:  { label: 'Other',   icon: '📦', className: 'other' },
+  drank:  { icon: '🍷', className: 'drank' },
+  gifted: { icon: '🎁', className: 'gifted' },
+  sold:   { icon: '💰', className: 'sold' },
+  other:  { icon: '📦', className: 'other' },
 };
 
 function CellarHistory() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const { apiFetch } = useAuth();
   const [cellar, setCellar] = useState(null);
@@ -47,21 +49,28 @@ function CellarHistory() {
     }
   };
 
-  if (loading) return <div className="loading">Loading history...</div>;
+  if (loading) return <div className="loading">{t('history.loadingHistory')}</div>;
   if (error) return <div className="alert alert-error">{error}</div>;
+
+  const REASON_LABEL_KEYS = {
+    drank:  'history.reasonDrank',
+    gifted: 'history.reasonGifted',
+    sold:   'history.reasonSold',
+    other:  'history.reasonOther',
+  };
 
   return (
     <div className="cellar-history-page">
       <div className="page-header">
         <div>
-          <Link to={`/cellars/${id}`} className="back-link">← Back to {cellar?.name}</Link>
+          <Link to={`/cellars/${id}`} className="back-link">{t('history.backTo', { cellarName: cellar?.name })}</Link>
           <h1 style={cellar?.userColor ? { borderLeft: `4px solid ${cellar.userColor}`, paddingLeft: '0.75rem' } : {}}>
-            Bottle History
+            {t('history.title')}
           </h1>
           <p className="page-subtitle">
             {total === 0
-              ? 'No bottles have been removed from this cellar yet'
-              : `${total} bottle${total !== 1 ? 's' : ''} in history`}
+              ? t('history.noHistory')
+              : t('history.bottleCount', { count: total })}
           </p>
         </div>
       </div>
@@ -75,7 +84,7 @@ function CellarHistory() {
               <div key={key} className={`history-summary-pill ${cfg.className} ${count === 0 ? 'empty' : ''}`}>
                 <span>{cfg.icon}</span>
                 <span className="pill-count">{count}</span>
-                <span>{cfg.label}</span>
+                <span>{t(REASON_LABEL_KEYS[key])}</span>
               </div>
             );
           })}
@@ -84,8 +93,8 @@ function CellarHistory() {
 
       {total === 0 && (
         <div className="empty-state">
-          <p>When you mark a bottle as consumed, gifted, or sold it will appear here.</p>
-          <Link to={`/cellars/${id}`} className="btn btn-primary">Back to Cellar</Link>
+          <p>{t('history.emptyHistoryHint')}</p>
+          <Link to={`/cellars/${id}`} className="btn btn-primary">{t('history.backToCellarBtn')}</Link>
         </div>
       )}
 
@@ -96,7 +105,7 @@ function CellarHistory() {
           <section key={key} className={`history-section ${cfg.className}`}>
             <div className="history-section-header">
               <span className="history-section-icon">{cfg.icon}</span>
-              <h2>{cfg.label} <span className="section-count">({items.length})</span></h2>
+              <h2>{t(REASON_LABEL_KEYS[key])} <span className="section-count">({items.length})</span></h2>
             </div>
             <div className="history-bottles">
               {items.map(bottle => (
@@ -111,6 +120,7 @@ function CellarHistory() {
 }
 
 function HistoryBottleCard({ bottle }) {
+  const { t } = useTranslation();
   const wine = bottle.wineDefinition;
   const consumedDate = bottle.consumedAt
     ? new Date(bottle.consumedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
@@ -128,12 +138,12 @@ function HistoryBottleCard({ bottle }) {
           />
         )}
         <div className="history-bottle-info">
-          <h3>{wine?.name || 'Unknown Wine'}</h3>
+          <h3>{wine?.name || t('common.unknownWine')}</h3>
           <p className="history-producer">{wine?.producer}</p>
           <div className="history-meta">
-            <span>Vintage: {bottle.vintage}</span>
+            <span>{t('history.vintageLabel')} {bottle.vintage}</span>
             {consumedDate && <span>· {consumedDate}</span>}
-            {bottle.price && <span>· Paid: {bottle.price} {bottle.currency}</span>}
+            {bottle.price && <span>· {t('history.paidLabel')} {bottle.price} {bottle.currency}</span>}
           </div>
         </div>
       </div>
@@ -143,7 +153,7 @@ function HistoryBottleCard({ bottle }) {
         {bottle.consumedRating && (
           <div className="history-rating">
             {'⭐'.repeat(bottle.consumedRating)}
-            <span className="rating-label">at consumption</span>
+            <span className="rating-label">{t('history.atConsumption')}</span>
           </div>
         )}
         {bottle.consumedNote && (

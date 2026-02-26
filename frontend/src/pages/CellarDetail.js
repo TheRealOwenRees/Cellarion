@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { getDrinkStatus } from '../utils/drinkStatus';
 import ShareCellarModal from '../components/ShareCellarModal';
@@ -7,6 +8,7 @@ import CellarColorPicker from '../components/CellarColorPicker';
 import './CellarDetail.css';
 
 function CellarDetail() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const { apiFetch } = useAuth();
   const navigate = useNavigate();
@@ -84,7 +86,7 @@ function CellarDetail() {
 
   const hasAlerts = statistics && (statistics.drinkOverdue > 0 || statistics.drinkSoon > 0);
 
-  if (loading) return <div className="loading">Loading cellar...</div>;
+  if (loading) return <div className="loading">{t('cellarDetail.loadingCellar')}</div>;
   if (error)   return <div className="alert alert-error">{error}</div>;
 
   const h1Style = cellar.userColor
@@ -95,15 +97,15 @@ function CellarDetail() {
     <div className="cellar-detail-page">
       <div className="page-header">
         <div>
-          <Link to="/cellars" className="back-link">← Back to Cellars</Link>
+          <Link to="/cellars" className="back-link">{t('cellarDetail.backToCellars')}</Link>
           <h1 style={h1Style}>{cellar.name}</h1>
           {cellar.description && <p className="cellar-description">{cellar.description}</p>}
           {cellar.userRole && cellar.userRole !== 'owner' && (
             <p className="shared-by-label">
-              Shared by <strong>{cellar.user?.username}</strong>
+              {t('cellarDetail.sharedBy')} <strong>{cellar.user?.username}</strong>
               {' · '}
               <span className={`shared-role-tag shared-role-tag--${cellar.userRole}`}>
-                {cellar.userRole === 'editor' ? 'Edit access' : 'View access'}
+                {cellar.userRole === 'editor' ? t('cellarDetail.editAccess') : t('cellarDetail.viewAccess')}
               </span>
             </p>
           )}
@@ -119,11 +121,11 @@ function CellarDetail() {
 
           {/* Primary actions — always visible */}
           <Link to={`/cellars/${id}/history`} className="btn btn-secondary btn-icon" title="History">
-            📖 <span className="btn-label">History</span>
+            📖 <span className="btn-label">{t('cellarDetail.history')}</span>
           </Link>
           {(cellar.userRole === 'owner' || cellar.userRole === 'editor') && (
             <Link to={`/cellars/${id}/add-bottle`} className="btn btn-primary btn-icon">
-              ➕ <span className="btn-label">Add Bottle</span>
+              ➕ <span className="btn-label">{t('cellarDetail.addBottle')}</span>
             </Link>
           )}
 
@@ -146,14 +148,14 @@ function CellarDetail() {
                     className="more-menu-item"
                     onClick={() => setShowColorPicker(true) || setMoreOpen(false)}
                   >
-                    🎨 Set Color
+                    {t('cellarDetail.setColor')}
                   </button>
                   {cellar.userRole === 'owner' && (
                     <button
                       className="more-menu-item"
                       onClick={() => { setShowEditModal(true); setMoreOpen(false); }}
                     >
-                      ✏️ Edit Cellar
+                      {t('cellarDetail.editCellar')}
                     </button>
                   )}
                   {cellar.userRole === 'owner' && (
@@ -161,7 +163,7 @@ function CellarDetail() {
                       className="more-menu-item"
                       onClick={() => { setShowShareModal(true); setMoreOpen(false); }}
                     >
-                      👥 Share
+                      {t('cellarDetail.share')}
                     </button>
                   )}
                   <Link
@@ -169,14 +171,14 @@ function CellarDetail() {
                     className="more-menu-item"
                     onClick={() => setMoreOpen(false)}
                   >
-                    🗂️ Racks
+                    {t('cellarDetail.racks')}
                   </Link>
                   <Link
                     to={`/cellars/${id}/history`}
                     className="more-menu-item"
                     onClick={() => setMoreOpen(false)}
                   >
-                    📖 History
+                    {t('cellarDetail.historyMenuItem')}
                   </Link>
                   {cellar.userRole === 'owner' && (
                     <Link
@@ -184,7 +186,7 @@ function CellarDetail() {
                       className="more-menu-item"
                       onClick={() => setMoreOpen(false)}
                     >
-                      🔍 Audit Log
+                      {t('cellarDetail.auditLog')}
                     </Link>
                   )}
                   {cellar.userRole === 'owner' && (
@@ -194,7 +196,7 @@ function CellarDetail() {
                         className="more-menu-item more-menu-item--danger"
                         onClick={() => { setShowDeleteModal(true); setMoreOpen(false); }}
                       >
-                        🗑️ Delete Cellar
+                        {t('cellarDetail.deleteCellar')}
                       </button>
                     </>
                   )}
@@ -208,14 +210,14 @@ function CellarDetail() {
       {/* Drink alert strip */}
       {hasAlerts && (
         <div className="drink-alert-strip">
-          <span className="drink-strip-label">Drink window alerts:</span>
+          <span className="drink-strip-label">{t('cellarDetail.drinkAlerts')}</span>
           {statistics.drinkOverdue > 0 && (
-            <span className="drink-badge overdue">{statistics.drinkOverdue} overdue</span>
+            <span className="drink-badge overdue">{t('cellarDetail.overdue', { count: statistics.drinkOverdue })}</span>
           )}
           {statistics.drinkSoon > 0 && (
-            <span className="drink-badge soon">{statistics.drinkSoon} drink soon</span>
+            <span className="drink-badge soon">{t('cellarDetail.drinkSoon', { count: statistics.drinkSoon })}</span>
           )}
-          <Link to={`/cellars/${id}/drink-alerts`} className="drink-strip-link">View all →</Link>
+          <Link to={`/cellars/${id}/drink-alerts`} className="drink-strip-link">{t('cellarDetail.viewAll')}</Link>
         </div>
       )}
 
@@ -223,19 +225,19 @@ function CellarDetail() {
         <div className="statistics-grid">
           <div className="stat-card">
             <h3>{statistics.totalBottles}</h3>
-            <p>Total Bottles</p>
+            <p>{t('cellarDetail.totalBottles')}</p>
           </div>
           <div className="stat-card">
             <h3>{statistics.uniqueWines}</h3>
-            <p>Unique Wines</p>
+            <p>{t('cellarDetail.uniqueWines')}</p>
           </div>
           <div className="stat-card">
             <h3>${statistics.totalValue.toFixed(2)}</h3>
-            <p>Total Value</p>
+            <p>{t('cellarDetail.totalValue')}</p>
           </div>
           <div className="stat-card">
             <h3>${statistics.averagePrice.toFixed(2)}</h3>
-            <p>Avg Price</p>
+            <p>{t('cellarDetail.avgPrice')}</p>
           </div>
         </div>
       )}
@@ -243,14 +245,14 @@ function CellarDetail() {
       <div className="filters-bar filters-bar-5">
         <input
           type="text"
-          placeholder="Search wines, producers, notes..."
+          placeholder={t('cellarDetail.searchPlaceholder')}
           value={filters.search}
           onChange={e => setFilters({ ...filters, search: e.target.value })}
           className="search-input"
         />
         <input
           type="text"
-          placeholder="Vintage (e.g., 2015)"
+          placeholder={t('cellarDetail.vintagePlaceholder')}
           value={filters.vintage}
           onChange={e => setFilters({ ...filters, vintage: e.target.value })}
           className="filter-input"
@@ -260,35 +262,35 @@ function CellarDetail() {
           onChange={e => setFilters({ ...filters, minRating: e.target.value })}
           className="filter-select"
         >
-          <option value="">All Ratings</option>
-          <option value="4">4+ Stars</option>
-          <option value="3">3+ Stars</option>
-          <option value="2">2+ Stars</option>
+          <option value="">{t('cellarDetail.allRatings')}</option>
+          <option value="4">{t('cellarDetail.stars4Plus')}</option>
+          <option value="3">{t('cellarDetail.stars3Plus')}</option>
+          <option value="2">{t('cellarDetail.stars2Plus')}</option>
         </select>
         <select
           value={filters.drinkStatus}
           onChange={e => setFilters({ ...filters, drinkStatus: e.target.value })}
           className="filter-select"
         >
-          <option value="">All Drink Windows</option>
-          <option value="overdue">Overdue</option>
-          <option value="soon">Drink Soon</option>
-          <option value="inWindow">In Window</option>
-          <option value="notReady">Not Ready</option>
+          <option value="">{t('cellarDetail.allDrinkWindows')}</option>
+          <option value="overdue">{t('cellarDetail.filterOverdue')}</option>
+          <option value="soon">{t('cellarDetail.filterSoon')}</option>
+          <option value="inWindow">{t('cellarDetail.filterInWindow')}</option>
+          <option value="notReady">{t('cellarDetail.filterNotReady')}</option>
         </select>
         <select
           value={filters.sort}
           onChange={e => setFilters({ ...filters, sort: e.target.value })}
           className="filter-select"
         >
-          <option value="-createdAt">Newest First</option>
-          <option value="createdAt">Oldest First</option>
-          <option value="name">Name A-Z</option>
-          <option value="-name">Name Z-A</option>
-          <option value="vintage">Vintage (Old→New)</option>
-          <option value="-vintage">Vintage (New→Old)</option>
-          <option value="price">Price (Low→High)</option>
-          <option value="-price">Price (High→Low)</option>
+          <option value="-createdAt">{t('cellarDetail.sortNewest')}</option>
+          <option value="createdAt">{t('cellarDetail.sortOldest')}</option>
+          <option value="name">{t('cellarDetail.sortNameAZ')}</option>
+          <option value="-name">{t('cellarDetail.sortNameZA')}</option>
+          <option value="vintage">{t('cellarDetail.sortVintageOld')}</option>
+          <option value="-vintage">{t('cellarDetail.sortVintageNew')}</option>
+          <option value="price">{t('cellarDetail.sortPriceLow')}</option>
+          <option value="-price">{t('cellarDetail.sortPriceHigh')}</option>
         </select>
       </div>
 
@@ -296,12 +298,12 @@ function CellarDetail() {
         <div className="empty-state">
           <p>
             {filters.drinkStatus
-              ? 'No bottles match this drink window filter.'
-              : 'No bottles in this cellar yet.'}
+              ? t('cellarDetail.noDrinkWindowFilter')
+              : t('cellarDetail.noBottles')}
           </p>
           {(cellar.userRole === 'owner' || cellar.userRole === 'editor') && (
             <Link to={`/cellars/${id}/add-bottle`} className="btn btn-primary">
-              Add Your First Bottle
+              {t('cellarDetail.addFirstBottle')}
             </Link>
           )}
         </div>
@@ -351,6 +353,7 @@ function CellarDetail() {
 
 // ── Edit cellar modal (owner only — name & description) ──
 function EditCellarModal({ cellar, onSaved, onClose }) {
+  const { t } = useTranslation();
   const { apiFetch } = useAuth();
   const [form, setForm] = useState({
     name: cellar.name,
@@ -385,11 +388,11 @@ function EditCellarModal({ cellar, onSaved, onClose }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={e => e.stopPropagation()}>
-        <h2>Edit Cellar</h2>
+        <h2>{t('cellarDetail.editCellarTitle')}</h2>
         {error && <div className="alert alert-error">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Name</label>
+            <label>{t('common.name')}</label>
             <input
               type="text"
               value={form.name}
@@ -398,7 +401,7 @@ function EditCellarModal({ cellar, onSaved, onClose }) {
             />
           </div>
           <div className="form-group">
-            <label>Description</label>
+            <label>{t('common.description')}</label>
             <textarea
               value={form.description}
               onChange={e => setForm({ ...form, description: e.target.value })}
@@ -406,9 +409,9 @@ function EditCellarModal({ cellar, onSaved, onClose }) {
             />
           </div>
           <div className="modal-actions">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+            <button type="button" className="btn btn-secondary" onClick={onClose}>{t('common.cancel')}</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? t('common.saving') : t('common.save')}
             </button>
           </div>
         </form>
@@ -419,6 +422,7 @@ function EditCellarModal({ cellar, onSaved, onClose }) {
 
 // ── Personal color picker modal (any user) ──
 function ColorPickerModal({ currentColor, cellarId, onSaved, onClose }) {
+  const { t } = useTranslation();
   const { apiFetch } = useAuth();
   const [color, setColor] = useState(currentColor || null);
   const [saving, setSaving] = useState(false);
@@ -439,13 +443,13 @@ function ColorPickerModal({ currentColor, cellarId, onSaved, onClose }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={e => e.stopPropagation()}>
-        <h2>My Cellar Color</h2>
-        <p className="modal-subtitle">Only you see this color — it won't affect others.</p>
+        <h2>{t('cellarDetail.myCellarColor')}</h2>
+        <p className="modal-subtitle">{t('cellarDetail.colorOnlyYou')}</p>
         <CellarColorPicker value={color} onChange={setColor} />
         <div className="modal-actions">
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-secondary" onClick={onClose}>{t('common.cancel')}</button>
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? t('common.saving') : t('common.save')}
           </button>
         </div>
       </div>
@@ -455,6 +459,7 @@ function ColorPickerModal({ currentColor, cellarId, onSaved, onClose }) {
 
 // ── Delete cellar modal (owner only — requires typing cellar name to confirm) ──
 function DeleteCellarModal({ cellar, onDeleted, onClose }) {
+  const { t } = useTranslation();
   const { apiFetch } = useAuth();
   const [typed, setTyped]   = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -485,13 +490,13 @@ function DeleteCellarModal({ cellar, onDeleted, onClose }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={e => e.stopPropagation()}>
-        <h2>Delete Cellar</h2>
+        <h2>{t('cellarDetail.deleteCellarTitle')}</h2>
         <p className="delete-warning">
           This will delete <strong>{cellar.name}</strong> and all its racks.<br />
-          Bottles are preserved in your history.
+          {t('cellarDetail.bottlesPreserved')}
         </p>
         <p className="delete-recovery">
-          The cellar can be recovered within 30 days — contact support if needed.
+          {t('cellarDetail.deleteRecovery')}
         </p>
         {error && <div className="alert alert-error">{error}</div>}
         <div className="form-group">
@@ -505,13 +510,13 @@ function DeleteCellarModal({ cellar, onDeleted, onClose }) {
           />
         </div>
         <div className="modal-actions">
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-secondary" onClick={onClose}>{t('common.cancel')}</button>
           <button
             className="btn btn-danger"
             onClick={handleDelete}
             disabled={!confirmed || deleting}
           >
-            {deleting ? 'Deleting…' : 'Delete Cellar'}
+            {deleting ? t('cellarDetail.deleting') : t('cellarDetail.deleteCellarTitle')}
           </button>
         </div>
       </div>

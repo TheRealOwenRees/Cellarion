@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { CURRENCIES } from '../config/currencies';
 import { fetchRates, convertAmount } from '../utils/currency';
@@ -19,6 +20,7 @@ function timeAgo(dateStr) {
 }
 
 function SommPrices() {
+  const { t } = useTranslation();
   const { apiFetch, user } = useAuth();
   const [queue, setQueue]     = useState([]);
   const [loading, setLoading] = useState(true);
@@ -56,21 +58,21 @@ function SommPrices() {
   return (
     <div className="somm-page">
       <div className="page-header">
-        <h1>Price Queue</h1>
+        <h1>{t('somm.prices.title')}</h1>
         <p className="somm-subtitle">
-          Update market prices for vintages with no history or a price older than 3 months.
+          {t('somm.prices.subtitle')}
         </p>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
 
       {loading ? (
-        <div className="loading">Loading queue…</div>
+        <div className="loading">{t('somm.prices.loadingQueue')}</div>
       ) : queue.length === 0 ? (
-        <div className="somm-empty">All prices are up to date. Great work!</div>
+        <div className="somm-empty">{t('somm.prices.allUpToDate')}</div>
       ) : (
         <>
-          <p className="sp-count">{queue.length} wine{queue.length !== 1 ? 's' : ''} need a price update</p>
+          <p className="sp-count">{t('somm.prices.needsUpdate', { count: queue.length })}</p>
           <div className="somm-list">
             {queue.map(item => (
               <PriceCard
@@ -91,6 +93,7 @@ function SommPrices() {
 
 // ── Individual price card ──────────────────────────────────────────────────────
 function PriceCard({ item, defaultCurrency, userCurrency, rates, onSaved }) {
+  const { t } = useTranslation();
   const { apiFetch } = useAuth();
   const wine  = item.wineDefinition;
   const isNew = !item.latestPrice;
@@ -109,7 +112,7 @@ function PriceCard({ item, defaultCurrency, userCurrency, rates, onSaved }) {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!form.price) { setErr('Price is required'); return; }
+    if (!form.price) { setErr(t('somm.prices.priceRequired')); return; }
     setSaving(true);
     setErr(null);
     try {
@@ -164,10 +167,10 @@ function PriceCard({ item, defaultCurrency, userCurrency, rates, onSaved }) {
               <span className="sp-last-age"> · {timeAgo(item.latestPrice.setAt)}</span>
             </span>
           ) : (
-            <span className="somm-status-pill pending">No history</span>
+            <span className="somm-status-pill pending">{t('somm.prices.noHistory')}</span>
           )}
           {item.bottleCount > 1 && (
-            <span className="sp-bottle-count">{item.bottleCount} bottles</span>
+            <span className="sp-bottle-count">{t('somm.prices.bottle', { count: item.bottleCount })}</span>
           )}
           <span className="somm-chevron">{expanded ? '▲' : '▼'}</span>
         </div>
@@ -183,14 +186,14 @@ function PriceCard({ item, defaultCurrency, userCurrency, rates, onSaved }) {
             const converted = convertAmount(prev.price, prev.currency, userCurrency, rates);
             return (
               <div className="sp-previous">
-                <span className="sp-previous-label">Previous:</span>
+                <span className="sp-previous-label">{t('somm.prices.previousLabel')}</span>
                 <strong>{prev.price} {prev.currency}</strong>
                 {converted !== null && (
                   <span className="sp-previous-converted">≈ {converted.toLocaleString()} {userCurrency}</span>
                 )}
-                <span className="sp-previous-age">— set {timeAgo(prev.setAt)}</span>
+                <span className="sp-previous-age">{t('somm.prices.setLabel')}{timeAgo(prev.setAt)}</span>
                 {prev.source && (
-                  <span className="sp-previous-source">via {prev.source}</span>
+                  <span className="sp-previous-source">{t('somm.prices.viaLabel')}{prev.source}</span>
                 )}
               </div>
             );
@@ -198,12 +201,12 @@ function PriceCard({ item, defaultCurrency, userCurrency, rates, onSaved }) {
 
           <div className="sp-form-row">
             <div className="form-group sp-price-field">
-              <label>Market price</label>
+              <label>{t('somm.prices.marketPrice')}</label>
               <input
                 type="number"
                 step="0.01"
                 min="0"
-                placeholder="e.g. 89.00"
+                placeholder={t('somm.prices.marketPricePlaceholder')}
                 value={form.price}
                 onChange={set('price')}
                 autoFocus={isNew}
@@ -212,17 +215,17 @@ function PriceCard({ item, defaultCurrency, userCurrency, rates, onSaved }) {
             </div>
 
             <div className="form-group sp-currency-field">
-              <label>Currency</label>
+              <label>{t('common.currency')}</label>
               <select value={form.currency} onChange={set('currency')}>
                 {CURRENCIES.map(c => <option key={c}>{c}</option>)}
               </select>
             </div>
 
             <div className="form-group sp-source-field">
-              <label>Source <span className="somm-year-hint">(optional)</span></label>
+              <label>{t('common.source')} <span className="somm-year-hint">{t('somm.prices.sourceOptional')}</span></label>
               <input
                 type="text"
-                placeholder="Vivino, Wine-Searcher…"
+                placeholder={t('somm.prices.sourcePlaceholder')}
                 value={form.source}
                 onChange={set('source')}
               />
@@ -231,7 +234,7 @@ function PriceCard({ item, defaultCurrency, userCurrency, rates, onSaved }) {
 
           <div className="somm-form-actions">
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving…' : 'Save price'}
+              {saving ? t('common.saving') : t('somm.prices.savePrice')}
             </button>
           </div>
         </form>

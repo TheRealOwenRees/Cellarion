@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth, usePlan } from '../contexts/AuthContext';
 import { getDrinkStatus, formatDrinkDate, toInputDate, toMonthInput, monthToLastDay } from '../utils/drinkStatus';
 import { fetchRates, convertAmount } from '../utils/currency';
@@ -26,6 +27,7 @@ function getMaturityStatus(profile) {
 }
 
 function BottleDetail() {
+  const { t } = useTranslation();
   const { id: cellarId, bottleId } = useParams();
   const { apiFetch, user } = useAuth();
   const navigate = useNavigate();
@@ -139,7 +141,7 @@ function BottleDetail() {
     }
   };
 
-  if (loading) return <div className="loading">Loading bottle...</div>;
+  if (loading) return <div className="loading">{t('bottleDetail.loadingBottle')}</div>;
   if (error)   return <div className="alert alert-error">{error}</div>;
 
   const wine = bottle.wineDefinition;
@@ -147,7 +149,7 @@ function BottleDetail() {
 
   return (
     <div className="bottle-detail-page">
-      <Link to={`/cellars/${cellarId}`} className="back-link">← Back to Cellar</Link>
+      <Link to={`/cellars/${cellarId}`} className="back-link">{t('bottleDetail.backToCellar')}</Link>
 
       {/* Wine header */}
       <div className="bd-wine-header card">
@@ -164,7 +166,7 @@ function BottleDetail() {
           )}
           <div className="bd-wine-meta">
             <h1 style={cellarColor ? { borderLeft: `4px solid ${cellarColor}`, paddingLeft: '0.75rem' } : {}}>
-              {wine?.name || 'Unknown Wine'}
+              {wine?.name || t('common.unknownWine')}
             </h1>
             <p className="bd-producer">
               {wine?.producer}
@@ -213,6 +215,7 @@ function BottleDetail() {
 
 // ── View mode ──
 function ViewDetails({ bottle, rackInfo, cellarId, drinkStatus, vintageProfile, priceHistory, rates, userCurrency, canEdit, onEdit, onRemove }) {
+  const { t } = useTranslation();
   const { plan, hasFeature } = usePlan();
   const hasPriceEvolution = hasFeature('priceEvolution');
   const maturityStatus = getMaturityStatus(vintageProfile);
@@ -221,24 +224,24 @@ function ViewDetails({ bottle, rackInfo, cellarId, drinkStatus, vintageProfile, 
     <div className="bd-details card">
       <div className="bd-detail-grid">
         <div className="bd-detail-item">
-          <span className="bd-detail-label">Vintage</span>
+          <span className="bd-detail-label">{t('bottleDetail.vintage')}</span>
           <span className="bd-detail-value">{bottle.vintage}</span>
         </div>
         {bottle.bottleSize && (
           <div className="bd-detail-item">
-            <span className="bd-detail-label">Size</span>
+            <span className="bd-detail-label">{t('bottleDetail.size')}</span>
             <span className="bd-detail-value">{bottle.bottleSize}</span>
           </div>
         )}
         {bottle.rating && (
           <div className="bd-detail-item">
-            <span className="bd-detail-label">Rating</span>
+            <span className="bd-detail-label">{t('bottleDetail.ratingLabel')}</span>
             <span className="bd-detail-value">{'⭐'.repeat(bottle.rating)}</span>
           </div>
         )}
         {bottle.price && (
           <div className="bd-detail-item">
-            <span className="bd-detail-label">Price paid</span>
+            <span className="bd-detail-label">{t('bottleDetail.pricePaid')}</span>
             <span className="bd-detail-value">
               {bottle.price} {bottle.currency}
               {(() => {
@@ -253,14 +256,14 @@ function ViewDetails({ bottle, rackInfo, cellarId, drinkStatus, vintageProfile, 
       {/* Sommelier maturity section — shown when a profile exists for this wine+vintage */}
       {bottle.vintage && bottle.vintage !== 'NV' && (
         <div className="bd-section">
-          <span className="bd-section-label">Sommelier Maturity</span>
+          <span className="bd-section-label">{t('bottleDetail.sommMaturity')}</span>
           {!vintageProfile ? (
-            <span className="bd-no-dates">Loading…</span>
+            <span className="bd-no-dates">{t('bottleDetail.loadingMaturity')}</span>
           ) : vintageProfile.status === 'pending' ? (
             <div className="bd-maturity-pending">
-              <span className="maturity-badge maturity-badge--pending">Awaiting sommelier review</span>
+              <span className="maturity-badge maturity-badge--pending">{t('bottleDetail.awaitingSommelier')}</span>
               <span className="bd-maturity-note">
-                Our sommeliers will set the aging window for this vintage soon.
+                {t('bottleDetail.sommelierWillSet')}
               </span>
             </div>
           ) : (
@@ -290,7 +293,7 @@ function ViewDetails({ bottle, rackInfo, cellarId, drinkStatus, vintageProfile, 
 
       {/* Drink window */}
       <div className="bd-section">
-        <span className="bd-section-label">Drink Window</span>
+        <span className="bd-section-label">{t('bottleDetail.drinkWindow')}</span>
         <div className="bd-drink-window">
           {(bottle.drinkFrom || bottle.drinkBefore) ? (
             <span className="bd-drink-dates">
@@ -299,7 +302,7 @@ function ViewDetails({ bottle, rackInfo, cellarId, drinkStatus, vintageProfile, 
               {formatDrinkDate(bottle.drinkBefore)}
             </span>
           ) : (
-            <span className="bd-no-dates">Not set</span>
+            <span className="bd-no-dates">{t('bottleDetail.notSet')}</span>
           )}
           {drinkStatus && (
             <span className={`drink-status-badge ${drinkStatus.status}`}>
@@ -312,12 +315,12 @@ function ViewDetails({ bottle, rackInfo, cellarId, drinkStatus, vintageProfile, 
       {/* Rack location */}
       {rackInfo && (
         <div className="bd-section">
-          <span className="bd-section-label">Rack Location</span>
+          <span className="bd-section-label">{t('bottleDetail.rackLocation')}</span>
           <Link
             to={`/cellars/${cellarId}/racks?highlight=${bottle._id}`}
             className="bd-rack-link"
           >
-            📍 {rackInfo.rackName} · slot {rackInfo.position}
+            📍 {rackInfo.rackName} · {t('bottleDetail.rackSlot')} {rackInfo.position}
           </Link>
         </div>
       )}
@@ -325,7 +328,7 @@ function ViewDetails({ bottle, rackInfo, cellarId, drinkStatus, vintageProfile, 
       {/* Notes */}
       {bottle.notes && (
         <div className="bd-section">
-          <span className="bd-section-label">Notes</span>
+          <span className="bd-section-label">{t('common.notes')}</span>
           <p className="bd-notes">{bottle.notes}</p>
         </div>
       )}
@@ -333,7 +336,7 @@ function ViewDetails({ bottle, rackInfo, cellarId, drinkStatus, vintageProfile, 
       {/* Purchase info */}
       {(bottle.purchaseDate || bottle.purchaseLocation || bottle.purchaseUrl) && (
         <div className="bd-section">
-          <span className="bd-section-label">Purchase</span>
+          <span className="bd-section-label">{t('bottleDetail.purchase')}</span>
           <div className="bd-purchase">
             {bottle.purchaseDate && (
               <span>{new Date(bottle.purchaseDate).toLocaleDateString()}</span>
@@ -351,15 +354,15 @@ function ViewDetails({ bottle, rackInfo, cellarId, drinkStatus, vintageProfile, 
       {/* Price Evolution — premium feature, not shown for NV */}
       {bottle.vintage !== 'NV' && (
         <div className="bd-section">
-          <span className="bd-section-label">Price Evolution</span>
+          <span className="bd-section-label">{t('bottleDetail.priceEvolution')}</span>
           {hasPriceEvolution ? (
             <PriceHistoryTimeline history={priceHistory} rates={rates} userCurrency={userCurrency} />
           ) : (
             <div className="bd-price-evolution bd-price-evolution--locked">
               <span className="bd-price-evolution__icon">🔒</span>
               <div>
-                <strong>Premium feature</strong>
-                <p>Track how the market value of this wine changes over time. Available on the Premium plan.</p>
+                <strong>{t('bottleDetail.premiumFeature')}</strong>
+                <p>{t('bottleDetail.premiumFeatureDesc')}</p>
               </div>
             </div>
           )}
@@ -368,8 +371,8 @@ function ViewDetails({ bottle, rackInfo, cellarId, drinkStatus, vintageProfile, 
 
       {canEdit && (
         <div className="bd-actions">
-          <button className="btn btn-secondary" onClick={onEdit}>✏️ Edit Details</button>
-          <button className="btn btn-consume" onClick={onRemove}>🍷 Remove Bottle</button>
+          <button className="btn btn-secondary" onClick={onEdit}>{t('bottleDetail.editDetails')}</button>
+          <button className="btn btn-consume" onClick={onRemove}>{t('bottleDetail.removeBottle')}</button>
         </div>
       )}
     </div>
@@ -378,6 +381,7 @@ function ViewDetails({ bottle, rackInfo, cellarId, drinkStatus, vintageProfile, 
 
 // ── Edit form ──
 function EditForm({ bottle, onSaved, onCancel }) {
+  const { t } = useTranslation();
   const { apiFetch } = useAuth();
   const [form, setForm] = useState({
     vintage:          bottle.vintage || '',
@@ -426,19 +430,19 @@ function EditForm({ bottle, onSaved, onCancel }) {
 
   return (
     <form className="bd-edit-form card" onSubmit={handleSave}>
-      <h2>Edit Bottle Details</h2>
+      <h2>{t('bottleDetail.editBottleTitle')}</h2>
       {error && <div className="alert alert-error">{error}</div>}
 
       <div className="bd-edit-grid">
         <div className="form-group">
-          <label>Vintage</label>
-          <input type="text" value={form.vintage} onChange={set('vintage')} placeholder="e.g. 2018 or NV" />
+          <label>{t('bottleDetail.vintage')}</label>
+          <input type="text" value={form.vintage} onChange={set('vintage')} placeholder={t('bottleDetail.vintagePlaceholder')} />
         </div>
 
         <div className="form-group">
-          <label>Rating</label>
+          <label>{t('bottleDetail.ratingLabel')}</label>
           <select value={form.rating} onChange={set('rating')}>
-            <option value="">Not rated</option>
+            <option value="">{t('common.noRating')}</option>
             <option value="5">⭐⭐⭐⭐⭐ 5 stars</option>
             <option value="4">⭐⭐⭐⭐ 4 stars</option>
             <option value="3">⭐⭐⭐ 3 stars</option>
@@ -448,12 +452,12 @@ function EditForm({ bottle, onSaved, onCancel }) {
         </div>
 
         <div className="form-group">
-          <label>Price</label>
+          <label>{t('common.price')}</label>
           <input type="number" step="0.01" min="0" value={form.price} onChange={set('price')} placeholder="0.00" />
         </div>
 
         <div className="form-group">
-          <label>Currency</label>
+          <label>{t('common.currency')}</label>
           <select value={form.currency} onChange={set('currency')}>
             <option>USD</option>
             <option>EUR</option>
@@ -463,7 +467,7 @@ function EditForm({ bottle, onSaved, onCancel }) {
         </div>
 
         <div className="form-group">
-          <label>Bottle Size</label>
+          <label>{t('addBottle.bottleSize')}</label>
           <select value={form.bottleSize} onChange={set('bottleSize')}>
             <option>375ml (Half)</option>
             <option>750ml (Standard)</option>
@@ -473,45 +477,45 @@ function EditForm({ bottle, onSaved, onCancel }) {
         </div>
 
         <div className="form-group">
-          <label>Purchase Date</label>
+          <label>{t('addBottle.purchaseDate')}</label>
           <input type="date" value={form.purchaseDate} onChange={set('purchaseDate')} />
         </div>
       </div>
 
       <div className="form-group drink-window-section">
-        <label>Drink Window</label>
+        <label>{t('bottleDetail.drinkWindow')}</label>
         <div className="drink-window-fields">
           <div>
-            <label className="sublabel">Drink From</label>
+            <label className="sublabel">{t('addBottle.drinkFrom')}</label>
             <input type="month" value={form.drinkFrom} onChange={set('drinkFrom')} />
           </div>
           <div>
-            <label className="sublabel">Drink Before</label>
+            <label className="sublabel">{t('addBottle.drinkBefore')}</label>
             <input type="month" value={form.drinkBefore} onChange={set('drinkBefore')} />
           </div>
         </div>
       </div>
 
       <div className="form-group">
-        <label>Notes</label>
-        <textarea value={form.notes} onChange={set('notes')} rows={4} placeholder="Tasting notes, storage conditions…" />
+        <label>{t('common.notes')}</label>
+        <textarea value={form.notes} onChange={set('notes')} rows={4} placeholder={t('addBottle.notesPlaceholder')} />
       </div>
 
       <div className="form-group">
-        <label>Purchase Location</label>
-        <input type="text" value={form.purchaseLocation} onChange={set('purchaseLocation')} placeholder="Store or location" />
+        <label>{t('addBottle.purchaseLocation')}</label>
+        <input type="text" value={form.purchaseLocation} onChange={set('purchaseLocation')} placeholder={t('addBottle.purchaseLocationPlaceholder')} />
       </div>
 
       <div className="form-group">
-        <label>Purchase URL</label>
+        <label>{t('addBottle.purchaseUrl')}</label>
         <input type="url" value={form.purchaseUrl} onChange={set('purchaseUrl')} placeholder="https://…" />
       </div>
 
       <div className="form-actions">
         <button type="submit" className="btn btn-primary" disabled={saving}>
-          {saving ? 'Saving…' : 'Save Changes'}
+          {saving ? t('common.saving') : t('bottleDetail.saveChanges')}
         </button>
-        <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
+        <button type="button" className="btn btn-secondary" onClick={onCancel}>{t('common.cancel')}</button>
       </div>
     </form>
   );
@@ -519,6 +523,7 @@ function EditForm({ bottle, onSaved, onCancel }) {
 
 // ── Consume modal ──
 function ConsumeModal({ wineName, onConfirm, onCancel }) {
+  const { t } = useTranslation();
   const [reason,  setReason]  = useState('drank');
   const [note,    setNote]    = useState('');
   const [rating,  setRating]  = useState('');
@@ -534,23 +539,23 @@ function ConsumeModal({ wineName, onConfirm, onCancel }) {
   return (
     <div className="modal-overlay" onClick={onCancel}>
       <div className="modal-box" onClick={e => e.stopPropagation()}>
-        <h2>Remove Bottle</h2>
+        <h2>{t('bottleDetail.removeBottleTitle')}</h2>
         {wineName && <p className="modal-wine-name">{wineName}</p>}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Reason</label>
+            <label>{t('common.reason')}</label>
             <select value={reason} onChange={e => setReason(e.target.value)}>
-              <option value="drank">Drank it</option>
-              <option value="gifted">Gifted</option>
-              <option value="sold">Sold</option>
-              <option value="other">Other</option>
+              <option value="drank">{t('bottleDetail.drinkReason')}</option>
+              <option value="gifted">{t('bottleDetail.giftedReason')}</option>
+              <option value="sold">{t('bottleDetail.soldReason')}</option>
+              <option value="other">{t('bottleDetail.otherReason')}</option>
             </select>
           </div>
           {reason === 'drank' && (
             <div className="form-group">
-              <label>Rating (optional)</label>
+              <label>{t('bottleDetail.ratingOptional')}</label>
               <select value={rating} onChange={e => setRating(e.target.value)}>
-                <option value="">— no rating —</option>
+                <option value="">{t('bottleDetail.noRatingOption')}</option>
                 <option value="1">⭐ 1 star</option>
                 <option value="2">⭐⭐ 2 stars</option>
                 <option value="3">⭐⭐⭐ 3 stars</option>
@@ -560,18 +565,18 @@ function ConsumeModal({ wineName, onConfirm, onCancel }) {
             </div>
           )}
           <div className="form-group">
-            <label>Note (optional)</label>
+            <label>{t('bottleDetail.noteOptional')}</label>
             <textarea
               value={note}
               onChange={e => setNote(e.target.value)}
               rows={3}
-              placeholder="How was it? Any tasting notes?"
+              placeholder={t('bottleDetail.notePlaceholder')}
             />
           </div>
           <div className="modal-actions">
-            <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
+            <button type="button" className="btn btn-secondary" onClick={onCancel}>{t('common.cancel')}</button>
             <button type="submit" className="btn btn-consume" disabled={saving}>
-              {saving ? 'Saving…' : 'Confirm'}
+              {saving ? t('common.saving') : t('common.confirm')}
             </button>
           </div>
         </form>
@@ -582,23 +587,24 @@ function ConsumeModal({ wineName, onConfirm, onCancel }) {
 
 // ── 3-phase maturity table shown on bottle detail ──
 function MaturityPhaseTable({ profile }) {
+  const { t } = useTranslation();
   const vintageInt = parseInt(profile.vintage);
 
   const phases = [
     {
-      label: 'Early drinking',
+      label: t('bottleDetail.maturityPhaseEarly'),
       cls:   'early',
       from:  profile.earlyFrom,
       until: profile.earlyUntil,
     },
     {
-      label: 'Optimal maturity ⭐',
+      label: t('bottleDetail.maturityPhasePeak'),
       cls:   'peak',
       from:  profile.peakFrom,
       until: profile.peakUntil,
     },
     {
-      label: 'Late maturity',
+      label: t('bottleDetail.maturityPhaseLate'),
       cls:   'late',
       from:  profile.lateFrom,
       until: profile.lateUntil,
@@ -652,14 +658,15 @@ function timeAgo(dateStr) {
 }
 
 function PriceHistoryTimeline({ history, rates, userCurrency }) {
+  const { t } = useTranslation();
   if (history === null) {
-    return <span className="bd-no-dates">Loading…</span>;
+    return <span className="bd-no-dates">{t('bottleDetail.loadingMaturity')}</span>;
   }
   if (history.length === 0) {
     return (
       <div className="bd-price-history-empty">
-        <span className="bd-no-dates">No market price data yet.</span>
-        <span className="bd-maturity-note">Our sommeliers will add pricing data for this vintage soon.</span>
+        <span className="bd-no-dates">{t('bottleDetail.noPriceData')}</span>
+        <span className="bd-maturity-note">{t('bottleDetail.sommelierAddPricing')}</span>
       </div>
     );
   }

@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import './AdminImages.css';
 
 const API_URL = process.env.REACT_APP_API_URL || '';
 
 function AdminImages() {
+  const { t } = useTranslation();
   const { apiFetch } = useAuth();
   const [images, setImages] = useState([]);
   const [total, setTotal] = useState(0);
@@ -17,6 +19,14 @@ function AdminImages() {
   const [error, setError] = useState(null);
 
   const limit = 20;
+
+  const statusLabels = [
+    { value: 'processed', label: t('admin.images.filterReady') },
+    { value: 'uploaded',  label: t('admin.images.filterUploading') },
+    { value: 'approved',  label: t('admin.images.filterApproved') },
+    { value: 'rejected',  label: t('admin.images.filterRejected') },
+    { value: '',          label: t('admin.images.filterAll') }
+  ];
 
   useEffect(() => {
     fetchImages();
@@ -117,19 +127,11 @@ function AdminImages() {
 
   const totalPages = Math.ceil(total / limit);
 
-  const statusLabels = [
-    { value: 'processed', label: 'Ready for Review' },
-    { value: 'uploaded', label: 'Uploading' },
-    { value: 'approved', label: 'Approved' },
-    { value: 'rejected', label: 'Rejected' },
-    { value: '', label: 'All' }
-  ];
-
   return (
     <div className="admin-images-page">
       <div className="page-header">
-        <h1>Admin: Image Review</h1>
-        <span className="image-count">{total} image{total !== 1 ? 's' : ''}</span>
+        <h1>{t('admin.images.title')}</h1>
+        <span className="image-count">{t('admin.images.image', { count: total })}</span>
       </div>
 
       <div className="admin-layout">
@@ -148,9 +150,9 @@ function AdminImages() {
           </div>
 
           {loading ? (
-            <div className="loading">Loading...</div>
+            <div className="loading">{t('common.loading')}</div>
           ) : images.length === 0 ? (
-            <div className="empty-state"><p>No images found</p></div>
+            <div className="empty-state"><p>{t('admin.images.noImages')}</p></div>
           ) : (
             <>
               <div className="images-list">
@@ -170,7 +172,7 @@ function AdminImages() {
                     <div className="image-item-info">
                       <div className="image-item-header">
                         <span className="image-item-wine">
-                          {img.wineDefinition?.name || img.bottle?.wineDefinition?.name || 'No wine linked'}
+                          {img.wineDefinition?.name || img.bottle?.wineDefinition?.name || t('admin.images.noWineLinked')}
                         </span>
                         <span className={`status-badge status-${img.status}`}>{img.status}</span>
                       </div>
@@ -207,15 +209,15 @@ function AdminImages() {
         {/* Right panel: detail & actions */}
         <div className="action-panel">
           {!selected ? (
-            <div className="empty-state"><p>Select an image to review</p></div>
+            <div className="empty-state"><p>{t('admin.images.selectImage')}</p></div>
           ) : (
             <div>
               <div className="image-detail card">
-                <h2>Image Detail</h2>
+                <h2>{t('admin.images.imageDetail')}</h2>
 
                 <div className="image-comparison">
                   <div className="image-compare-item">
-                    <h3>Original</h3>
+                    <h3>{t('admin.images.original')}</h3>
                     <img
                       src={`${API_URL}${selected.originalUrl}`}
                       alt="Original"
@@ -224,7 +226,7 @@ function AdminImages() {
                   </div>
                   {selected.processedUrl && (
                     <div className="image-compare-item">
-                      <h3>Background Removed</h3>
+                      <h3>{t('admin.images.backgroundRemoved')}</h3>
                       <div className="processed-image-container">
                         <img
                           src={`${API_URL}${selected.processedUrl}`}
@@ -237,17 +239,17 @@ function AdminImages() {
                 </div>
 
                 <div className="image-meta">
-                  <p><strong>Status:</strong> <span className={`status-badge status-${selected.status}`}>{selected.status}</span></p>
-                  <p><strong>Uploaded by:</strong> {selected.uploadedBy?.username}</p>
-                  <p><strong>Date:</strong> {new Date(selected.createdAt).toLocaleString()}</p>
+                  <p><strong>{t('admin.images.statusLabel')}</strong> <span className={`status-badge status-${selected.status}`}>{selected.status}</span></p>
+                  <p><strong>{t('admin.images.uploadedBy')}</strong> {selected.uploadedBy?.username}</p>
+                  <p><strong>{t('admin.images.dateLabel')}</strong> {new Date(selected.createdAt).toLocaleString()}</p>
                   {selected.wineDefinition && (
-                    <p><strong>Wine:</strong> {selected.wineDefinition.name} ({selected.wineDefinition.producer})</p>
+                    <p><strong>{t('admin.images.wineLabel')}</strong> {selected.wineDefinition.name} ({selected.wineDefinition.producer})</p>
                   )}
                   {selected.reviewedBy && (
-                    <p><strong>Reviewed by:</strong> {selected.reviewedBy.username} on {new Date(selected.reviewedAt).toLocaleString()}</p>
+                    <p><strong>{t('admin.images.reviewedBy')}</strong> {selected.reviewedBy.username} on {new Date(selected.reviewedAt).toLocaleString()}</p>
                   )}
                   {selected.assignedToWine && (
-                    <p className="assigned-badge">Assigned as official wine image</p>
+                    <p className="assigned-badge">{t('admin.images.assignedBadge')}</p>
                   )}
                 </div>
               </div>
@@ -257,21 +259,21 @@ function AdminImages() {
               {/* Actions for processed/uploaded images */}
               {['processed', 'uploaded'].includes(selected.status) && (
                 <div className="review-actions card">
-                  <h3>Review Actions</h3>
+                  <h3>{t('admin.images.reviewActions')}</h3>
                   <div className="form-actions">
                     <button
                       onClick={handleApprove}
                       className="btn btn-success"
                       disabled={submitting}
                     >
-                      {submitting ? 'Processing...' : 'Approve'}
+                      {submitting ? t('admin.images.processing') : t('admin.images.approve')}
                     </button>
                     <button
                       onClick={handleReject}
                       className="btn btn-danger"
                       disabled={submitting}
                     >
-                      Reject
+                      {t('admin.requests.reject')}
                     </button>
                   </div>
                 </div>
@@ -280,22 +282,22 @@ function AdminImages() {
               {/* Assign to wine for approved images */}
               {selected.status === 'approved' && !selected.assignedToWine && (
                 <div className="assign-panel card">
-                  <h3>Assign to Wine</h3>
+                  <h3>{t('admin.images.assignToWine')}</h3>
                   <p className="help-text">
-                    Set this image as the official image for a wine definition.
+                    {t('admin.images.assignHint')}
                   </p>
                   {selected.wineDefinition ? (
                     <p>
-                      Linked wine: <strong>{selected.wineDefinition.name}</strong> ({selected.wineDefinition.producer})
+                      {t('admin.images.linkedWine')} <strong>{selected.wineDefinition.name}</strong> ({selected.wineDefinition.producer})
                     </p>
                   ) : (
                     <div className="form-group">
-                      <label>Wine Definition ID</label>
+                      <label>{t('admin.images.wineDefIdLabel')}</label>
                       <input
                         type="text"
                         value={assignWineId}
                         onChange={(e) => setAssignWineId(e.target.value)}
-                        placeholder="Paste wine definition ID"
+                        placeholder={t('admin.images.wineDefIdPlaceholder')}
                       />
                     </div>
                   )}
@@ -304,7 +306,7 @@ function AdminImages() {
                     className="btn btn-primary"
                     disabled={submitting}
                   >
-                    {submitting ? 'Assigning...' : 'Assign as Official Image'}
+                    {submitting ? t('admin.images.assigning') : t('admin.images.assignBtn')}
                   </button>
                 </div>
               )}
