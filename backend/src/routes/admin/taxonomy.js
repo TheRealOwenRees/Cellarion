@@ -1,9 +1,11 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const { requireAuth, requireRole } = require('../../middleware/auth');
 const { normalizeString } = require('../../utils/normalize');
 const Country = require('../../models/Country');
 const Region = require('../../models/Region');
 const Grape = require('../../models/Grape');
+const Appellation = require('../../models/Appellation');
 const searchService = require('../../services/search');
 const { logAudit } = require('../../services/audit');
 
@@ -122,7 +124,13 @@ router.delete('/countries/:id', async (req, res) => {
 router.get('/regions', async (req, res) => {
   try {
     const { country } = req.query;
-    const filter = country ? { country } : {};
+    const filter = {};
+    if (country) {
+      if (!mongoose.Types.ObjectId.isValid(country)) {
+        return res.status(400).json({ error: 'Invalid country id' });
+      }
+      filter.country = country;
+    }
 
     const regions = await Region.find(filter)
       .populate('country', 'name')
@@ -367,6 +375,122 @@ router.delete('/grapes/:id', async (req, res) => {
   } catch (error) {
     console.error('Delete grape error:', error);
     res.status(500).json({ error: 'Failed to delete grape' });
+  }
+});
+
+// ===== APPELLATIONS =====
+
+// GET /api/admin/taxonomy/appellations - List (filter by country and/or region)
+router.get('/appellations', async (req, res) => {
+  try {
+    const { country, region } = req.query;
+    const filter = {};
+    if (country) {
+      if (!mongoose.Types.ObjectId.isValid(country)) {
+        return res.status(400).json({ error: 'Invalid country id' });
+      }
+      filter.country = country;
+    }
+    if (region) {
+      if (!mongoose.Types.ObjectId.isValid(region)) {
+        return res.status(400).json({ error: 'Invalid region id' });
+      }
+      filter.region = region;
+    }
+
+    const appellations = await Appellation.find(filter)
+      .populate('country', 'name')
+      .populate('region', 'name')
+      .sort({ name: 1 });
+
+    res.json({ count: appellations.length, appellations });
+  } catch (error) {
+    console.error('Get appellations error:', error);
+    res.status(500).json({ error: 'Failed to get appellations' });
+  }
+});
+
+// POST /api/admin/taxonomy/appellations - Create appellation
+router.post('/appellations', async (req, res) => {
+  try {
+    const { name, country, region } = req.body;
+
+    if (!name || !country) {
+      return res.status(400).json({ error: 'Name and country are required' });
+    }
+
+    const normalizedName = normalizeString(name);
+
+    const appellation = new Appellation({
+      name: name.trim(),
+      normalizedName,
+      country,
+      region: region || null,
+      createdBy: req.user.id
+    });
+
+    await appellation.save();
+    await appellation.populate('country', 'name');
+    await appellation.populate('region', 'name');
+
+    logAudit(req, 'admin.taxonomy.create',
+      { type: 'appellation', id: appellation._id },
+      { name: appellation.name }
+    );
+    res.status(201).json({ appellation });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ error: 'Appellation already exists in this country' });
+    }
+    console.error('Create appellation error:', error);
+    res.status(500).json({ error: 'Failed to create appellation' });
+  }
+});
+
+// PUT /api/admin/taxonomy/appellations/:id - Update appellation
+router.put('/appellations/:id', async (req, res) => {
+  try {
+    const { name, region } = req.body;
+
+    const appellation = await Appellation.findById(req.params.id);
+    if (!appellation) {
+      return res.status(404).json({ error: 'Appellation not found' });
+    }
+
+    if (name) {
+      appellation.name = name.trim();
+      appellation.normalizedName = normalizeString(name);
+    }
+    if (region !== undefined) appellation.region = region || null;
+
+    await appellation.save();
+    await appellation.populate('country', 'name');
+    await appellation.populate('region', 'name');
+
+    res.json({ appellation });
+  } catch (error) {
+    console.error('Update appellation error:', error);
+    res.status(500).json({ error: 'Failed to update appellation' });
+  }
+});
+
+// DELETE /api/admin/taxonomy/appellations/:id - Delete appellation
+router.delete('/appellations/:id', async (req, res) => {
+  try {
+    const appellation = await Appellation.findById(req.params.id);
+    if (!appellation) {
+      return res.status(404).json({ error: 'Appellation not found' });
+    }
+
+    logAudit(req, 'admin.taxonomy.delete',
+      { type: 'appellation', id: appellation._id },
+      { name: appellation.name }
+    );
+    await appellation.deleteOne();
+    res.json({ message: 'Appellation deleted successfully' });
+  } catch (error) {
+    console.error('Delete appellation error:', error);
+    res.status(500).json({ error: 'Failed to delete appellation' });
   }
 });
 
