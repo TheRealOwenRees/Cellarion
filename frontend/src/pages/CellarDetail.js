@@ -62,7 +62,7 @@ function CellarDetail() {
 
   const fetchStatistics = async () => {
     try {
-      const res = await apiFetch(`/api/cellars/${id}/statistics`);
+      const res = await apiFetch(`/api/cellars/${id}/statistics?currency=${userCurrency}`);
       const data = await res.json();
       if (res.ok) setStatistics(data.statistics);
     } catch {}
@@ -233,11 +233,11 @@ function CellarDetail() {
             <p>{t('cellarDetail.uniqueWines')}</p>
           </div>
           <div className="stat-card">
-            <h3>{statistics.totalValue.toFixed(2)} {userCurrency}</h3>
+            <h3>{statistics.convertedTotal.toFixed(2)} {userCurrency}</h3>
             <p>{t('cellarDetail.totalValue')}</p>
           </div>
           <div className="stat-card">
-            <h3>{statistics.averagePrice.toFixed(2)} {userCurrency}</h3>
+            <h3>{statistics.convertedAverage.toFixed(2)} {userCurrency}</h3>
             <p>{t('cellarDetail.avgPrice')}</p>
           </div>
         </div>
