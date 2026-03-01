@@ -4,13 +4,11 @@ A self-hosted wine cellar management app built with the MERN stack. Track your b
 
 ## Hosted Version
 
-A demo of Cellarion is publicly available at:
+Cellarion is now live and publicly available at:
 
-👉 https://demo.cellarion.app
+👉 https://cellarion.app
 
-> **Note:** This is a demo instance running the latest open-source codebase. The full hosted service will launch at **https://cellarion.app** — stay tuned.
-
-Anyone can create an account on the demo site and try out the full feature set.
+You can create an account and start using the full hosted service today.
 
 ## Stack
 
