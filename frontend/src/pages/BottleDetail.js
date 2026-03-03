@@ -4,7 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { useAuth, usePlan } from '../contexts/AuthContext';
 import { getDrinkStatus, formatDrinkDate, toInputDate, toMonthInput, monthToLastDay } from '../utils/drinkStatus';
 import { fetchRates, convertAmount, convertAmountHistorical } from '../utils/currency';
+import { CURRENCIES } from '../config/currencies';
 import ImageUpload from '../components/ImageUpload';
+import RatingInput from '../components/RatingInput';
+import RatingDisplay from '../components/RatingDisplay';
 import './BottleDetail.css';
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -132,12 +135,12 @@ function BottleDetail() {
     setEditing(false);
   };
 
-  const handleConsumeConfirm = async (reason, note, rating) => {
+  const handleConsumeConfirm = async (reason, note, rating, consumedRatingScale) => {
     try {
       const res = await apiFetch(`/api/bottles/${bottleId}/consume`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason, note, rating })
+        body: JSON.stringify({ reason, note, rating, consumedRatingScale })
       });
       const data = await res.json();
       if (res.ok) {
@@ -220,6 +223,7 @@ function BottleDetail() {
       {consumeOpen && (
         <ConsumeModal
           wineName={wine?.name}
+          defaultRatingScale={user?.preferences?.ratingScale || '5'}
           onConfirm={handleConsumeConfirm}
           onCancel={() => setConsumeOpen(false)}
         />
@@ -252,7 +256,9 @@ function ViewDetails({ bottle, rackInfo, cellarId, drinkStatus, vintageProfile, 
         {bottle.rating && (
           <div className="bd-detail-item">
             <span className="bd-detail-label">{t('bottleDetail.ratingLabel')}</span>
-            <span className="bd-detail-value">{'⭐'.repeat(bottle.rating)}</span>
+            <span className="bd-detail-value">
+              <RatingDisplay value={bottle.rating} scale={bottle.ratingScale || '5'} />
+            </span>
           </div>
         )}
         {bottle.price && (
@@ -406,15 +412,18 @@ const API_URL = process.env.REACT_APP_API_URL || '';
 
 function EditForm({ bottle, onSaved, onCancel, onImageUploaded }) {
   const { t } = useTranslation();
-  const { apiFetch } = useAuth();
+  const { apiFetch, user } = useAuth();
   const [form, setForm] = useState({
-    vintage:          bottle.vintage || '',
-    rating:           bottle.rating  || '',
+    vintage:          bottle.vintage     || '',
+    rating:           bottle.rating      || '',
+    ratingScale:      bottle.ratingScale || '5',
     drinkFrom:        toMonthInput(bottle.drinkFrom),
     drinkBefore:      toMonthInput(bottle.drinkBefore),
     notes:            bottle.notes   || '',
     price:            bottle.price   || '',
-    currency:         bottle.currency || 'USD',
+    // If bottle has a price, keep stored currency (price and currency must stay in sync).
+    // If no price yet, default to user's preference so they don't have to change it every time.
+    currency:         bottle.price ? (bottle.currency || 'USD') : (user?.preferences?.currency || bottle.currency || 'USD'),
     bottleSize:       bottle.bottleSize || '750ml',
     purchaseDate:     toInputDate(bottle.purchaseDate),
     purchaseLocation: bottle.purchaseLocation || '',
@@ -438,7 +447,8 @@ function EditForm({ bottle, onSaved, onCancel, onImageUploaded }) {
         body: JSON.stringify({
           ...form,
           price:  form.price  ? parseFloat(form.price)  : null,
-          rating: form.rating ? parseInt(form.rating)   : null,
+          rating: form.rating ? parseFloat(form.rating) : null,
+          ratingScale: form.ratingScale || '5',
           drinkFrom:    form.drinkFrom   ? `${form.drinkFrom}-01`         : null,
           drinkBefore:  form.drinkBefore ? monthToLastDay(form.drinkBefore) : null,
           purchaseDate: form.purchaseDate || null,
@@ -467,14 +477,13 @@ function EditForm({ bottle, onSaved, onCancel, onImageUploaded }) {
 
         <div className="form-group">
           <label>{t('bottleDetail.ratingLabel')}</label>
-          <select value={form.rating} onChange={set('rating')}>
-            <option value="">{t('common.noRating')}</option>
-            <option value="5">⭐⭐⭐⭐⭐ 5 stars</option>
-            <option value="4">⭐⭐⭐⭐ 4 stars</option>
-            <option value="3">⭐⭐⭐ 3 stars</option>
-            <option value="2">⭐⭐ 2 stars</option>
-            <option value="1">⭐ 1 star</option>
-          </select>
+          <RatingInput
+            value={form.rating}
+            scale={form.ratingScale}
+            onChange={v => setForm(f => ({ ...f, rating: v ?? '' }))}
+            onScaleChange={s => setForm(f => ({ ...f, ratingScale: s, rating: '' }))}
+            allowScaleOverride
+          />
         </div>
 
         <div className="form-group">
@@ -485,10 +494,7 @@ function EditForm({ bottle, onSaved, onCancel, onImageUploaded }) {
         <div className="form-group">
           <label>{t('common.currency')}</label>
           <select value={form.currency} onChange={set('currency')}>
-            <option>USD</option>
-            <option>EUR</option>
-            <option>GBP</option>
-            <option>CAD</option>
+            {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
 
@@ -576,17 +582,18 @@ function EditForm({ bottle, onSaved, onCancel, onImageUploaded }) {
 }
 
 // ── Consume modal ──
-function ConsumeModal({ wineName, onConfirm, onCancel }) {
+function ConsumeModal({ wineName, defaultRatingScale, onConfirm, onCancel }) {
   const { t } = useTranslation();
-  const [reason,  setReason]  = useState('drank');
-  const [note,    setNote]    = useState('');
-  const [rating,  setRating]  = useState('');
-  const [saving,  setSaving]  = useState(false);
+  const [reason,       setReason]      = useState('drank');
+  const [note,         setNote]        = useState('');
+  const [rating,       setRating]      = useState('');
+  const [ratingScale,  setRatingScale] = useState(defaultRatingScale || '5');
+  const [saving,       setSaving]      = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    await onConfirm(reason, note || undefined, rating || undefined);
+    await onConfirm(reason, note || undefined, rating || undefined, ratingScale);
     setSaving(false);
   };
 
@@ -608,14 +615,13 @@ function ConsumeModal({ wineName, onConfirm, onCancel }) {
           {reason === 'drank' && (
             <div className="form-group">
               <label>{t('bottleDetail.ratingOptional')}</label>
-              <select value={rating} onChange={e => setRating(e.target.value)}>
-                <option value="">{t('bottleDetail.noRatingOption')}</option>
-                <option value="1">⭐ 1 star</option>
-                <option value="2">⭐⭐ 2 stars</option>
-                <option value="3">⭐⭐⭐ 3 stars</option>
-                <option value="4">⭐⭐⭐⭐ 4 stars</option>
-                <option value="5">⭐⭐⭐⭐⭐ 5 stars</option>
-              </select>
+              <RatingInput
+                value={rating}
+                scale={ratingScale}
+                onChange={v => setRating(v ?? '')}
+                onScaleChange={s => { setRatingScale(s); setRating(''); }}
+                allowScaleOverride
+              />
             </div>
           )}
           <div className="form-group">
