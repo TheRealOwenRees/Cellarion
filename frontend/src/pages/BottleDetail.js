@@ -46,6 +46,7 @@ function BottleDetail() {
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(false);
   const [consumeOpen, setConsumeOpen] = useState(false);
+  const [suggestGrapesOpen, setSuggestGrapesOpen] = useState(false);
   const [pendingImage, setPendingImage] = useState(null);
 
 
@@ -215,7 +216,9 @@ function BottleDetail() {
           rates={rates}
           userCurrency={user?.preferences?.currency || 'USD'}
           canEdit={userRole === 'owner' || userRole === 'editor'}
+          hasImage={!!(pendingImage || bottle.wineDefinition?.image)}
           onEdit={() => setEditing(true)}
+          onSuggestGrapes={() => setSuggestGrapesOpen(true)}
           onRemove={() => setConsumeOpen(true)}
         />
       )}
@@ -228,17 +231,58 @@ function BottleDetail() {
           onCancel={() => setConsumeOpen(false)}
         />
       )}
+
+      {suggestGrapesOpen && (
+        <SuggestGrapesModal
+          wine={wine}
+          onClose={() => setSuggestGrapesOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Dismissible community contribution prompt ──
+function ContributePrompt({ storageKey, icon, title, message, actionLabel, onAction, actionHref }) {
+  const [dismissed, setDismissed] = useState(() => {
+    try { return localStorage.getItem(storageKey) === '1'; } catch { return false; }
+  });
+
+  if (dismissed) return null;
+
+  const dismiss = () => {
+    try { localStorage.setItem(storageKey, '1'); } catch {}
+    setDismissed(true);
+  };
+
+  return (
+    <div className="bd-contribute">
+      <button className="bd-contribute__dismiss" onClick={dismiss} aria-label="Dismiss">×</button>
+      <div className="bd-contribute__body">
+        <span className="bd-contribute__icon">{icon}</span>
+        <div className="bd-contribute__text">
+          <strong className="bd-contribute__title">{title}</strong>
+          <p className="bd-contribute__msg">{message}</p>
+        </div>
+      </div>
+      {actionHref ? (
+        <Link to={actionHref} className="bd-contribute__action">{actionLabel} →</Link>
+      ) : (
+        <button className="bd-contribute__action" onClick={onAction}>{actionLabel} →</button>
+      )}
     </div>
   );
 }
 
 // ── View mode ──
-function ViewDetails({ bottle, rackInfo, cellarId, drinkStatus, vintageProfile, priceHistory, rates, userCurrency, canEdit, onEdit, onRemove }) {
+function ViewDetails({ bottle, rackInfo, cellarId, drinkStatus, vintageProfile, priceHistory, rates, userCurrency, canEdit, hasImage, onEdit, onSuggestGrapes, onRemove }) {
   const { t } = useTranslation();
   const { plan, hasFeature } = usePlan();
   const hasAgingMaturity = hasFeature('agingMaturity');
   const hasPriceEvolution = hasFeature('priceEvolution');
   const maturityStatus = getMaturityStatus(vintageProfile);
+  const wine = bottle.wineDefinition;
+  const grapes = wine?.grapes || [];
 
   return (
     <div className="bd-details card">
@@ -277,6 +321,41 @@ function ViewDetails({ bottle, rackInfo, cellarId, drinkStatus, vintageProfile, 
               })()}
             </span>
           </div>
+        )}
+      </div>
+
+      {/* Missing photo contribution prompt */}
+      {!hasImage && canEdit && (
+        <ContributePrompt
+          storageKey={`cellarion_contrib_photo_${wine?._id}`}
+          icon="📷"
+          title={t('bottleDetail.contributePhotoTitle', 'Help the community')}
+          message={t('bottleDetail.contributePhotoMsg', 'This wine has no photo yet. Adding one helps other collectors recognise it — it will be reviewed before going public.')}
+          actionLabel={t('bottleDetail.contributePhotoAction', 'Add a photo')}
+          onAction={onEdit}
+        />
+      )}
+
+      {/* Grapes */}
+      <div className="bd-section">
+        <span className="bd-section-label">{t('bottleDetail.grapes', 'Grape Varieties')}</span>
+        {grapes.length > 0 ? (
+          <div className="bd-grapes">
+            {grapes.map(g => (
+              <span key={g._id} className="bd-grape-pill">{g.name}</span>
+            ))}
+          </div>
+        ) : canEdit ? (
+          <ContributePrompt
+            storageKey={`cellarion_contrib_grapes_${wine?._id}`}
+            icon="🍇"
+            title={t('bottleDetail.contributeGrapesTitle', 'Help the community')}
+            message={t('bottleDetail.contributeGrapesMsg', 'Grape varieties aren\'t listed for this wine yet. Suggest them and our team will review.')}
+            actionLabel={t('bottleDetail.contributeGrapesAction', 'Suggest grapes')}
+            onAction={onSuggestGrapes}
+          />
+        ) : (
+          <span className="bd-missing-hint">{t('bottleDetail.noGrapes', 'No grape varieties listed')}</span>
         )}
       </div>
 
@@ -578,6 +657,86 @@ function EditForm({ bottle, onSaved, onCancel, onImageUploaded }) {
         <button type="button" className="btn btn-secondary" onClick={onCancel}>{t('common.cancel')}</button>
       </div>
     </form>
+  );
+}
+
+// ── Suggest grapes modal ──
+function SuggestGrapesModal({ wine, onClose }) {
+  const { t } = useTranslation();
+  const { apiFetch } = useAuth();
+  const [grapes, setGrapes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const suggestedGrapes = grapes.split(',').map(g => g.trim()).filter(Boolean);
+    if (!suggestedGrapes.length) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await apiFetch('/api/wine-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requestType: 'grape_suggestion',
+          linkedWineDefinition: wine._id,
+          suggestedGrapes
+        })
+      });
+      const data = await res.json();
+      if (res.ok) setSubmitted(true);
+      else setError(data.error || t('common.error', 'An error occurred'));
+    } catch {
+      setError(t('common.networkError', 'Network error'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" onClick={e => e.stopPropagation()}>
+        {submitted ? (
+          <>
+            <h2>{t('bottleDetail.suggestGrapesThankYou', 'Thanks for contributing!')}</h2>
+            <p className="modal-wine-name">{wine?.name}</p>
+            <p style={{ fontSize: '0.9rem', color: '#9A9484', marginBottom: '1.25rem' }}>
+              {t('bottleDetail.suggestGrapesConfirm', 'Your suggestion has been submitted for review. Our team will add the verified varieties to the wine registry.')}
+            </p>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={onClose}>{t('common.close', 'Close')}</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h2>{t('bottleDetail.suggestGrapesTitle', 'Suggest Grape Varieties')}</h2>
+            <p className="modal-wine-name">{wine?.name}</p>
+            <form onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label>{t('bottleDetail.suggestGrapesLabel', 'Grape varieties')}</label>
+                <input
+                  type="text"
+                  value={grapes}
+                  onChange={e => setGrapes(e.target.value)}
+                  placeholder={t('bottleDetail.suggestGrapesPlaceholder', 'e.g. Cabernet Sauvignon, Merlot')}
+                  autoFocus
+                />
+                <small className="form-hint">{t('bottleDetail.suggestGrapesHint', 'Separate multiple varieties with commas')}</small>
+              </div>
+              {error && <div className="alert alert-error">{error}</div>}
+              <div className="modal-actions">
+                <button type="button" className="btn btn-secondary" onClick={onClose}>{t('common.cancel')}</button>
+                <button type="submit" className="btn btn-primary" disabled={submitting || !grapes.trim()}>
+                  {submitting ? t('common.saving') : t('bottleDetail.suggestGrapesSubmit', 'Submit suggestion')}
+                </button>
+              </div>
+            </form>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
