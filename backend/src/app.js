@@ -25,6 +25,7 @@ const sommMaturityRoute = require('./routes/somm/maturity');
 const sommPricesRoute  = require('./routes/somm/prices');
 const notificationsRoute = require('./routes/notifications');
 const statsRoute = require('./routes/stats');
+const superAdminRoute = require('./routes/superadmin');
 const chatRoute = require('./routes/chat');
 const adminAiRoute = require('./routes/admin/ai');
 const rateLimitsConfig = require('./config/rateLimits');
@@ -122,6 +123,7 @@ app.use('/api/somm/maturity', sommMaturityRoute);
 app.use('/api/somm/prices',  sommPricesRoute);
 app.use('/api/notifications', notificationsRoute);
 app.use('/api/stats', statsRoute);
+app.use('/api/superadmin', superAdminRoute);
 app.use('/api/chat', chatRoute);
 app.use('/api/admin/ai', adminAiRoute);
 
