@@ -3,9 +3,10 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { PLANS } from '../config/plans';
-import CellarionLogo from './CellarionLogo';
 import NotificationBell from './NotificationBell';
 import './Layout.css';
+
+const LOGO_IMG = process.env.PUBLIC_URL + '/cellarion-logo.jpg';
 
 function Layout({ children }) {
   const { t } = useTranslation();
@@ -34,7 +35,7 @@ function Layout({ children }) {
         <div className="navbar-top">
           <div className="navbar-brand">
             <Link to="/" onClick={closeMenu} className="brand-link">
-              <CellarionLogo size={30} color="#7B9E88" />
+              <img src={LOGO_IMG} alt="Cellarion" className="brand-logo-img" />
               <span>Cellarion</span>
             </Link>
           </div>
