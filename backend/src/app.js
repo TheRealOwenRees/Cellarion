@@ -94,8 +94,8 @@ const writeLimiter = rateLimit({
 });
 app.use('/api/', writeLimiter);
 
-// Serve uploaded images (auth required, restricted to image file extensions)
-app.use('/api/uploads', requireAuth, (req, res, next) => {
+// Serve uploaded images (auth + rate-limit required, restricted to image file extensions)
+app.use('/api/uploads', apiLimiter, requireAuth, (req, res, next) => {
   const ext = path.extname(req.path).toLowerCase();
   const allowedExts = ['.jpg', '.jpeg', '.png', '.webp'];
   if (!allowedExts.includes(ext)) {
@@ -133,6 +133,14 @@ app.use('/api/admin/ai', adminAiRoute);
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
+});
+
+// Centralized error handler — catches errors passed via next(err)
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  console.error(err);
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({ error: err.message || 'Internal server error' });
 });
 
 // Load rate limit configuration from DB on startup (non-blocking; falls back to defaults)
