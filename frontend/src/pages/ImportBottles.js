@@ -66,6 +66,7 @@ function ImportBottles() {
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [expandedRow, setExpandedRow] = useState(null);
+  const [manualWines, setManualWines] = useState({}); // index -> wine object from search
 
   // Import step
   const [importing, setImporting] = useState(false);
@@ -185,19 +186,55 @@ function ImportBottles() {
     setSearchResults([]);
   };
 
-  const selectSearchResult = (wineId) => {
-    setSelections(prev => ({ ...prev, [searchModal.index]: wineId }));
+  const selectSearchResult = (wine) => {
+    const sourceIndex = searchModal.index;
+    setSelections(withPropagation(sourceIndex, wine._id));
+    setManualWines(prev => {
+      const sourceItem = results.find(r => r.index === sourceIndex)?.item;
+      const key = sourceItem ? wineKey(sourceItem) : null;
+      const next = { ...prev, [sourceIndex]: wine };
+      if (key) {
+        results.forEach(r => {
+          if (r.index !== sourceIndex && wineKey(r.item) === key && !selections[r.index]) {
+            next[r.index] = wine;
+          }
+        });
+      }
+      return next;
+    });
     setSearchModal(null);
+  };
+
+  // ── Selection helpers ────────────────────────────────────────────────────
+
+  // Returns a key for grouping duplicate wines: "wineName|producer" (lowercased)
+  const wineKey = (item) =>
+    `${(item?.wineName || '').toLowerCase()}|${(item?.producer || '').toLowerCase()}`;
+
+  // Returns a selections updater that also propagates selValue to unselected
+  // rows that have the same wine name + producer as the source row.
+  const withPropagation = (sourceIndex, selValue) => (prev) => {
+    const sourceItem = results.find(r => r.index === sourceIndex)?.item;
+    const key = sourceItem ? wineKey(sourceItem) : null;
+    const next = { ...prev, [sourceIndex]: selValue };
+    if (key) {
+      results.forEach(r => {
+        if (r.index !== sourceIndex && wineKey(r.item) === key && !prev[r.index]) {
+          next[r.index] = selValue;
+        }
+      });
+    }
+    return next;
   };
 
   // ── Selection handlers ──────────────────────────────────────────────────
 
   const selectWine = (index, wineId) => {
-    setSelections(prev => ({ ...prev, [index]: wineId }));
+    setSelections(withPropagation(index, wineId));
   };
 
   const skipItem = (index) => {
-    setSelections(prev => ({ ...prev, [index]: 'skip' }));
+    setSelections(withPropagation(index, 'skip'));
   };
 
   const unskipItem = (index) => {
@@ -206,6 +243,10 @@ function ImportBottles() {
       delete next[index];
       return next;
     });
+  };
+
+  const requestWine = (index) => {
+    setSelections(withPropagation(index, 'request'));
   };
 
   // Bulk actions
@@ -224,6 +265,16 @@ function ImportBottles() {
     results.forEach(r => {
       if (r.status === 'no_match' || r.status === 'error') {
         sel[r.index] = 'skip';
+      }
+    });
+    setSelections(sel);
+  };
+
+  const requestAllUnmatched = () => {
+    const sel = { ...selections };
+    results.forEach(r => {
+      if (r.status === 'no_match') {
+        sel[r.index] = 'request';
       }
     });
     setSelections(sel);
@@ -250,7 +301,10 @@ function ImportBottles() {
         return sel && sel !== 'skip';
       })
       .map(r => ({
-        wineDefinition: selections[r.index],
+        wineDefinition: selections[r.index] !== 'request' ? selections[r.index] : undefined,
+        requestWine: selections[r.index] === 'request' ? true : undefined,
+        wineName: r.item.wineName,
+        producer: r.item.producer,
         vintage: r.item.vintage,
         price: r.item.price,
         currency: r.item.currency,
@@ -263,9 +317,15 @@ function ImportBottles() {
         ratingScale: r.item.ratingScale,
         drinkFrom: r.item.drinkFrom,
         drinkBefore: r.item.drinkBefore,
-        dateAdded: r.item.purchaseDate, // Use purchase date as added date if available
+        dateAdded: r.item.dateAdded || r.item.purchaseDate,
         rackName: r.item.rackName,
         rackPosition: r.item.rackPosition,
+        addToHistory: r.item.addToHistory,
+        consumedReason: r.item.consumedReason,
+        consumedAt: r.item.consumedAt,
+        consumedRating: r.item.consumedRating,
+        consumedRatingScale: r.item.consumedRatingScale,
+        consumedNote: r.item.consumedNote,
       }));
 
     try {
@@ -422,12 +482,15 @@ function ImportBottles() {
           <button className="btn btn-secondary btn-sm" onClick={selectAllExact}>
             Accept all matches
           </button>
+          <button className="btn btn-secondary btn-sm" onClick={requestAllUnmatched}>
+            Request all unmatched
+          </button>
           <button className="btn btn-secondary btn-sm" onClick={skipAllUnmatched}>
             Skip all unmatched
           </button>
           <button
             className="btn btn-secondary btn-sm"
-            onClick={() => { setStep('upload'); setResults([]); setSummary(null); setSelections({}); }}
+            onClick={() => { setStep('upload'); setResults([]); setSummary(null); setSelections({}); setManualWines({}); }}
           >
             Back to upload
           </button>
@@ -449,19 +512,32 @@ function ImportBottles() {
               {results.map((r) => {
                 const sel = selections[r.index];
                 const isSkipped = sel === 'skip';
-                const selectedWine = sel && sel !== 'skip'
+                const isRequested = sel === 'request';
+                const matchedWine = sel && sel !== 'skip' && sel !== 'request'
                   ? r.matches.find(m => m.wineId === sel) || null
                   : null;
+                const manualWine = !matchedWine && manualWines[r.index]?._id === sel
+                  ? manualWines[r.index]
+                  : null;
+                const selectedWine = matchedWine || (manualWine ? {
+                  wineId: manualWine._id,
+                  name: manualWine.name,
+                  producer: manualWine.producer,
+                  country: manualWine.country?.name || '',
+                  region: manualWine.region?.name || '',
+                  type: manualWine.type,
+                  score: null,
+                } : null);
                 const isExpanded = expandedRow === r.index;
 
                 return (
                   <tr
                     key={r.index}
-                    className={`review-row ${isSkipped ? 'row-skipped' : ''} ${STATUS_CLASSES[r.status]}`}
+                    className={`review-row ${isSkipped ? 'row-skipped' : ''} ${isRequested ? 'row-requested' : ''} ${STATUS_CLASSES[r.status]}`}
                   >
                     <td className="col-status">
                       <span className={`status-badge ${STATUS_CLASSES[r.status]}`}>
-                        {isSkipped ? 'Skipped' : STATUS_LABELS[r.status]}
+                        {isSkipped ? 'Skipped' : isRequested ? 'Requested' : STATUS_LABELS[r.status]}
                       </span>
                     </td>
                     <td className="col-source">
@@ -477,6 +553,8 @@ function ImportBottles() {
                     <td className="col-match">
                       {isSkipped ? (
                         <span className="match-skipped">Will not import</span>
+                      ) : isRequested ? (
+                        <span className="match-requested">Imported pending admin review</span>
                       ) : selectedWine ? (
                         <div className="match-info">
                           <strong>{selectedWine.producer}</strong>
@@ -486,7 +564,9 @@ function ImportBottles() {
                             {selectedWine.country || ''}
                             {selectedWine.region ? ` · ${selectedWine.region}` : ''}
                           </span>
-                          <span className="match-score">{Math.round(selectedWine.score * 100)}% match</span>
+                          {selectedWine.score != null && (
+                            <span className="match-score">{Math.round(selectedWine.score * 100)}% match</span>
+                          )}
                         </div>
                       ) : r.status === 'error' ? (
                         <span className="match-error">{r.error}</span>
@@ -503,7 +583,7 @@ function ImportBottles() {
                     </td>
                     <td className="col-actions">
                       <div className="action-buttons">
-                        {r.matches.length > 1 && !isSkipped && (
+                        {r.matches.length > 1 && !isSkipped && !isRequested && (
                           <button
                             className="btn btn-secondary btn-xs"
                             onClick={() => setExpandedRow(isExpanded ? null : r.index)}
@@ -511,7 +591,7 @@ function ImportBottles() {
                             {isExpanded ? 'Hide' : `${r.matches.length} options`}
                           </button>
                         )}
-                        {!isSkipped && (
+                        {!isSkipped && !isRequested && (
                           <button
                             className="btn btn-secondary btn-xs"
                             onClick={() => openSearchModal(r.index)}
@@ -519,12 +599,20 @@ function ImportBottles() {
                             Search
                           </button>
                         )}
-                        {isSkipped ? (
+                        {r.status === 'no_match' && !isSkipped && !isRequested && (
+                          <button
+                            className="btn btn-secondary btn-xs btn-request"
+                            onClick={() => requestWine(r.index)}
+                          >
+                            Request wine
+                          </button>
+                        )}
+                        {isSkipped || isRequested ? (
                           <button
                             className="btn btn-secondary btn-xs"
                             onClick={() => unskipItem(r.index)}
                           >
-                            Unskip
+                            Undo
                           </button>
                         ) : (
                           <button
@@ -640,6 +728,7 @@ function ImportBottles() {
             setResults([]);
             setSummary(null);
             setSelections({});
+            setManualWines({});
             setImportResult(null);
             setFileName('');
           }}
@@ -714,7 +803,7 @@ function ImportBottles() {
                 <button
                   key={wine._id}
                   className="search-result-item"
-                  onClick={() => selectSearchResult(wine._id)}
+                  onClick={() => selectSearchResult(wine)}
                 >
                   <div className="search-result-info">
                     <strong>{wine.producer}</strong>
