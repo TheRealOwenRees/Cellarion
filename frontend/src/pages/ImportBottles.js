@@ -1,9 +1,16 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { validateImport, confirmImport } from '../api/bottles';
 import { searchWines } from '../api/wines';
 import { parseAndMap, parseJSON } from '../utils/importMappers';
+import {
+  listImportSessions,
+  createImportSession,
+  getImportSession,
+  updateImportSession,
+  deleteImportSession
+} from '../api/importSessions';
 import Modal from '../components/Modal';
 import './ImportBottles.css';
 
@@ -71,6 +78,16 @@ function ImportBottles() {
   // Import step
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
+  const [rowImporting, setRowImporting] = useState(null); // index of row being individually imported
+
+  // Session persistence
+  const [sessionId, setSessionId] = useState(null);
+  const [saveStatus, setSaveStatus] = useState('idle'); // 'idle'|'unsaved'|'saving'|'saved'|'error'
+  const [draftSessions, setDraftSessions] = useState([]); // existing drafts to offer resume
+  const [refreshedItems, setRefreshedItems] = useState({}); // { [index]: match } – newly matched on resume
+  const saveTimerRef = useRef(null);
+  // Ref so the debounced callback always reads current values without needing them in deps
+  const saveDataRef = useRef({});
 
   // Contact email (loaded from public settings)
   const [contactEmail, setContactEmail] = useState(null);
@@ -80,6 +97,119 @@ function ImportBottles() {
       .then(d => { if (d?.contactEmail) setContactEmail(d.contactEmail); })
       .catch(() => {});
   }, []);
+
+  // Check for existing draft sessions when the page loads
+  useEffect(() => {
+    listImportSessions(apiFetch, cellarId)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.sessions?.length > 0) setDraftSessions(d.sessions); })
+      .catch(() => {});
+  }, [apiFetch, cellarId]);
+
+  // Keep saveDataRef current so the debounced save always uses latest values
+  saveDataRef.current = {
+    apiFetch, cellarId, fileName, detectedFormat,
+    results, selections, manualWines, sessionId
+  };
+
+  // Auto-save whenever selections or manualWines change while in review step
+  useEffect(() => {
+    if (step !== 'review' || results.length === 0) return;
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    setSaveStatus('unsaved');
+
+    saveTimerRef.current = setTimeout(async () => {
+      setSaveStatus('saving');
+      const {
+        apiFetch: af, cellarId: cid, fileName: fn, detectedFormat: df,
+        results: rs, selections: sels, manualWines: mw, sessionId: sid
+      } = saveDataRef.current;
+
+      try {
+        if (!sid) {
+          // First save for this review session — create a new session
+          const res = await createImportSession(af, {
+            cellarId: cid, fileName: fn, detectedFormat: df,
+            results: rs, selections: sels, manualWines: mw
+          });
+          const data = await res.json();
+          if (res.ok) {
+            setSessionId(data.sessionId);
+            setSaveStatus('saved');
+            setDraftSessions([]); // hide resume banner once we have a live session
+          } else {
+            setSaveStatus('error');
+          }
+        } else {
+          // Subsequent saves — just update selections/manualWines
+          const res = await updateImportSession(af, sid, { selections: sels, manualWines: mw });
+          setSaveStatus(res.ok ? 'saved' : 'error');
+        }
+      } catch {
+        setSaveStatus('error');
+      }
+    }, 1500);
+
+    return () => clearTimeout(saveTimerRef.current);
+  }, [step, selections, manualWines]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Recompute summary from a results array (used after resume + refresh)
+  const computeSummary = (rs) => ({
+    total: rs.length,
+    exact: rs.filter(r => r.status === 'exact').length,
+    fuzzy: rs.filter(r => r.status === 'fuzzy').length,
+    noMatch: rs.filter(r => r.status === 'no_match').length,
+    errors: rs.filter(r => r.status === 'error').length
+  });
+
+  // Resume a saved draft session
+  const handleResumeSession = async (session) => {
+    try {
+      const res = await getImportSession(apiFetch, session._id);
+      if (!res.ok) return;
+      const { session: s, refreshed } = await res.json();
+
+      // Apply refreshed matches (items that were 'request' but now have an exact wine)
+      let updatedResults = s.results || [];
+      const updatedSelections = { ...(s.selections || {}) };
+
+      if (Object.keys(refreshed).length > 0) {
+        updatedResults = updatedResults.map(r => {
+          const match = refreshed[r.index];
+          if (!match) return r;
+          // Prepend the new match so it appears first
+          return {
+            ...r,
+            status: 'exact',
+            matches: [
+              { wineId: match.wineId, name: match.name, producer: match.producer,
+                country: match.country, region: match.region, appellation: match.appellation,
+                type: match.type, score: match.score },
+              ...r.matches
+            ]
+          };
+        });
+        // Update selections to use the new wineId
+        Object.entries(refreshed).forEach(([idx, match]) => {
+          updatedSelections[Number(idx)] = match.wineId;
+        });
+        setRefreshedItems(refreshed);
+      }
+
+      setResults(updatedResults);
+      setSelections(updatedSelections);
+      setManualWines(s.manualWines || {});
+      setFileName(s.fileName || '');
+      setDetectedFormat(s.detectedFormat || null);
+      setSummary(computeSummary(updatedResults));
+      setSessionId(s._id);
+      setDraftSessions([]);
+      setStep('review');
+    } catch {
+      // If load fails, just stay on upload step
+    }
+  };
 
   // ── File handling ───────────────────────────────────────────────────────
 
@@ -291,11 +421,64 @@ function ImportBottles() {
 
   // ── Import ──────────────────────────────────────────────────────────────
 
-  const getImportableCount = () => {
-    return results.filter(r => {
-      const sel = selections[r.index];
-      return sel && sel !== 'skip';
-    }).length;
+  // Build the payload object for a single result row
+  const buildImportItem = (r) => {
+    const sel = selections[r.index];
+    return {
+      wineDefinition: sel !== 'request' ? sel : undefined,
+      requestWine: sel === 'request' ? true : undefined,
+      wineName: r.item.wineName,
+      producer: r.item.producer,
+      vintage: r.item.vintage,
+      price: r.item.price,
+      currency: r.item.currency,
+      bottleSize: r.item.bottleSize,
+      purchaseDate: r.item.purchaseDate,
+      purchaseLocation: r.item.purchaseLocation,
+      location: r.item.location,
+      notes: r.item.notes,
+      rating: r.item.rating,
+      ratingScale: r.item.ratingScale,
+      drinkFrom: r.item.drinkFrom,
+      drinkBefore: r.item.drinkBefore,
+      dateAdded: r.item.dateAdded || r.item.purchaseDate,
+      rackName: r.item.rackName,
+      rackPosition: r.item.rackPosition,
+      addToHistory: r.item.addToHistory,
+      consumedReason: r.item.consumedReason,
+      consumedAt: r.item.consumedAt,
+      consumedRating: r.item.consumedRating,
+      consumedRatingScale: r.item.consumedRatingScale,
+      consumedNote: r.item.consumedNote,
+    };
+  };
+
+  // Rows eligible for bulk import: has a real selection, not skipped, not already imported
+  const isImportableRow = (r) => {
+    const sel = selections[r.index];
+    return sel && sel !== 'skip' && sel !== 'imported';
+  };
+
+  const getImportableCount = () => results.filter(isImportableRow).length;
+
+  // Import a single row immediately; marks it 'imported' so it's excluded from the bulk action
+  const handleImportRow = async (r) => {
+    if (rowImporting !== null || importing) return;
+    setRowImporting(r.index);
+    try {
+      const res = await confirmImport(apiFetch, { cellarId, items: [buildImportItem(r)] });
+      const data = await res.json();
+      if (res.ok && data.created > 0) {
+        // Mark as imported — auto-save will persist this to the session
+        setSelections(prev => ({ ...prev, [r.index]: 'imported' }));
+      } else {
+        setError((data.errors?.[0]?.reason) || data.error || 'Import failed');
+      }
+    } catch {
+      setError('Network error');
+    } finally {
+      setRowImporting(null);
+    }
   };
 
   const handleImport = async () => {
@@ -303,39 +486,10 @@ function ImportBottles() {
     setError(null);
     setStep('importing');
 
-    // Build items for confirm endpoint
+    // Build items for confirm endpoint — skip already-imported rows
     const items = results
-      .filter(r => {
-        const sel = selections[r.index];
-        return sel && sel !== 'skip';
-      })
-      .map(r => ({
-        wineDefinition: selections[r.index] !== 'request' ? selections[r.index] : undefined,
-        requestWine: selections[r.index] === 'request' ? true : undefined,
-        wineName: r.item.wineName,
-        producer: r.item.producer,
-        vintage: r.item.vintage,
-        price: r.item.price,
-        currency: r.item.currency,
-        bottleSize: r.item.bottleSize,
-        purchaseDate: r.item.purchaseDate,
-        purchaseLocation: r.item.purchaseLocation,
-        location: r.item.location,
-        notes: r.item.notes,
-        rating: r.item.rating,
-        ratingScale: r.item.ratingScale,
-        drinkFrom: r.item.drinkFrom,
-        drinkBefore: r.item.drinkBefore,
-        dateAdded: r.item.dateAdded || r.item.purchaseDate,
-        rackName: r.item.rackName,
-        rackPosition: r.item.rackPosition,
-        addToHistory: r.item.addToHistory,
-        consumedReason: r.item.consumedReason,
-        consumedAt: r.item.consumedAt,
-        consumedRating: r.item.consumedRating,
-        consumedRatingScale: r.item.consumedRatingScale,
-        consumedNote: r.item.consumedNote,
-      }));
+      .filter(isImportableRow)
+      .map(buildImportItem);
 
     try {
       const res = await confirmImport(apiFetch, { cellarId, items });
@@ -350,6 +504,11 @@ function ImportBottles() {
 
       setImportResult(data);
       setStep('done');
+      // Clean up the saved session after a successful import
+      if (sessionId) {
+        deleteImportSession(apiFetch, sessionId).catch(() => {});
+        setSessionId(null);
+      }
     } catch (err) {
       setError('Network error during import');
       setStep('review');
@@ -362,6 +521,31 @@ function ImportBottles() {
 
   const renderUploadStep = () => (
     <div className="import-upload">
+      {draftSessions.length > 0 && (
+        <div className="session-resume-banner">
+          <div className="session-resume-info">
+            <strong>You have a saved import in progress</strong>
+            <span className="session-resume-meta">
+              {draftSessions[0].fileName && `${draftSessions[0].fileName} · `}
+              Last saved {new Date(draftSessions[0].updatedAt).toLocaleString()}
+            </span>
+          </div>
+          <div className="session-resume-actions">
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => handleResumeSession(draftSessions[0])}
+            >
+              Resume
+            </button>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setDraftSessions([])}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
       <div className="import-instructions">
         <h3>Supported Formats</h3>
         <div className="format-cards">
@@ -460,9 +644,34 @@ function ImportBottles() {
     </div>
   );
 
+  // Sort priority: unresolved no-match → unresolved fuzzy → unresolved exact →
+  // error → resolved (matched/requested) → skipped → imported.
+  // Within each group: alphabetical by producer then wine name.
+  const sortResults = (rs) => {
+    const priority = (r) => {
+      const sel = selections[r.index];
+      if (sel === 'imported') return 6;
+      if (sel === 'skip') return 5;
+      if (sel === 'request') return 4;
+      if (sel) return 3; // has a wineId selection
+      if (r.status === 'error') return 2;
+      if (r.status === 'fuzzy') return 1;
+      return 0; // no_match without selection — most urgent
+    };
+    return [...rs].sort((a, b) => {
+      const pd = priority(a) - priority(b);
+      if (pd !== 0) return pd;
+      const nameA = `${a.item.producer || ''} ${a.item.wineName || ''}`.toLowerCase();
+      const nameB = `${b.item.producer || ''} ${b.item.wineName || ''}`.toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+  };
+
   const renderReviewStep = () => {
     const importable = getImportableCount();
+    const importedCount = results.filter(r => selections[r.index] === 'imported').length;
     const unresolved = results.filter(r => !selections[r.index] && r.status !== 'error').length;
+    const sortedResults = sortResults(results);
 
     return (
       <div className="import-review">
@@ -484,6 +693,12 @@ function ImportBottles() {
             <span className="summary-number summary-importable">{importable}</span>
             <span className="summary-label">Ready</span>
           </div>
+          {importedCount > 0 && (
+            <div className="summary-stat">
+              <span className="summary-number summary-imported">{importedCount}</span>
+              <span className="summary-label">Imported</span>
+            </div>
+          )}
         </div>
 
         {/* Bulk actions */}
@@ -499,11 +714,43 @@ function ImportBottles() {
           </button>
           <button
             className="btn btn-secondary btn-sm"
-            onClick={() => { setStep('upload'); setResults([]); setSummary(null); setSelections({}); setManualWines({}); }}
+            onClick={() => {
+              setStep('upload');
+              setResults([]);
+              setSummary(null);
+              setSelections({});
+              setManualWines({});
+              setSessionId(null);
+              setSaveStatus('idle');
+              setRefreshedItems({});
+            }}
           >
             Back to upload
           </button>
+          <span className={`save-status save-status-${saveStatus}`}>
+            {saveStatus === 'saving' && 'Saving\u2026'}
+            {saveStatus === 'saved' && 'Progress saved'}
+            {saveStatus === 'unsaved' && 'Unsaved changes'}
+            {saveStatus === 'error' && 'Save failed'}
+          </span>
         </div>
+
+        {/* Notify user about wines matched since last save */}
+        {Object.keys(refreshedItems).length > 0 && (
+          <div className="session-refresh-notice">
+            <strong>
+              {Object.keys(refreshedItems).length} wine{Object.keys(refreshedItems).length !== 1 ? 's' : ''} added to the library
+            </strong>
+            {' '}since your last save — selections updated automatically.
+            <button
+              className="session-refresh-dismiss"
+              onClick={() => setRefreshedItems({})}
+              aria-label="Dismiss"
+            >
+              &times;
+            </button>
+          </div>
+        )}
 
         {/* Results table */}
         <div className="review-table-wrap">
@@ -518,11 +765,13 @@ function ImportBottles() {
               </tr>
             </thead>
             <tbody>
-              {results.map((r) => {
+              {sortedResults.map((r) => {
                 const sel = selections[r.index];
                 const isSkipped = sel === 'skip';
                 const isRequested = sel === 'request';
-                const matchedWine = sel && sel !== 'skip' && sel !== 'request'
+                const isImported = sel === 'imported';
+                const hasReadySel = sel && !isSkipped && !isRequested && !isImported;
+                const matchedWine = hasReadySel
                   ? r.matches.find(m => m.wineId === sel) || null
                   : null;
                 const manualWine = !matchedWine && manualWines[r.index]?._id === sel
@@ -538,15 +787,16 @@ function ImportBottles() {
                   score: null,
                 } : null);
                 const isExpanded = expandedRow === r.index;
+                const isThisRowImporting = rowImporting === r.index;
 
                 return (
                   <tr
                     key={r.index}
-                    className={`review-row ${isSkipped ? 'row-skipped' : ''} ${isRequested ? 'row-requested' : ''} ${STATUS_CLASSES[r.status]}`}
+                    className={`review-row ${isSkipped ? 'row-skipped' : ''} ${isRequested ? 'row-requested' : ''} ${isImported ? 'row-imported' : ''} ${STATUS_CLASSES[r.status]}`}
                   >
                     <td className="col-status">
-                      <span className={`status-badge ${STATUS_CLASSES[r.status]}`}>
-                        {isSkipped ? 'Skipped' : isRequested ? 'Requested' : STATUS_LABELS[r.status]}
+                      <span className={`status-badge ${isImported ? 'status-imported' : STATUS_CLASSES[r.status]}`}>
+                        {isImported ? 'Imported' : isSkipped ? 'Skipped' : isRequested ? 'Requested' : STATUS_LABELS[r.status]}
                       </span>
                     </td>
                     <td className="col-source">
@@ -560,7 +810,9 @@ function ImportBottles() {
                       </div>
                     </td>
                     <td className="col-match">
-                      {isSkipped ? (
+                      {isImported ? (
+                        <span className="match-imported">Added to cellar</span>
+                      ) : isSkipped ? (
                         <span className="match-skipped">Will not import</span>
                       ) : isRequested ? (
                         <span className="match-requested">Imported pending admin review</span>
@@ -591,50 +843,63 @@ function ImportBottles() {
                       )}
                     </td>
                     <td className="col-actions">
-                      <div className="action-buttons">
-                        {r.matches.length > 1 && !isSkipped && !isRequested && (
-                          <button
-                            className="btn btn-secondary btn-xs"
-                            onClick={() => setExpandedRow(isExpanded ? null : r.index)}
-                          >
-                            {isExpanded ? 'Hide' : `${r.matches.length} options`}
-                          </button>
-                        )}
-                        {!isSkipped && !isRequested && (
-                          <button
-                            className="btn btn-secondary btn-xs"
-                            onClick={() => openSearchModal(r.index)}
-                          >
-                            Search
-                          </button>
-                        )}
-                        {r.status === 'no_match' && !isSkipped && !isRequested && (
-                          <button
-                            className="btn btn-secondary btn-xs btn-request"
-                            onClick={() => requestWine(r.index)}
-                          >
-                            Request wine
-                          </button>
-                        )}
-                        {isSkipped || isRequested ? (
-                          <button
-                            className="btn btn-secondary btn-xs"
-                            onClick={() => unskipItem(r.index)}
-                          >
-                            Undo
-                          </button>
-                        ) : (
-                          <button
-                            className="btn btn-secondary btn-xs btn-skip"
-                            onClick={() => skipItem(r.index)}
-                          >
-                            Skip
-                          </button>
-                        )}
-                      </div>
+                      {isImported ? null : (
+                        <div className="action-buttons">
+                          {r.matches.length > 1 && !isSkipped && !isRequested && (
+                            <button
+                              className="btn btn-secondary btn-xs"
+                              onClick={() => setExpandedRow(isExpanded ? null : r.index)}
+                            >
+                              {isExpanded ? 'Hide' : `${r.matches.length} options`}
+                            </button>
+                          )}
+                          {!isSkipped && !isRequested && (
+                            <button
+                              className="btn btn-secondary btn-xs"
+                              onClick={() => openSearchModal(r.index)}
+                            >
+                              Search
+                            </button>
+                          )}
+                          {(r.status === 'no_match' || r.status === 'fuzzy') && !isSkipped && !isRequested && (
+                            <button
+                              className="btn btn-secondary btn-xs btn-request"
+                              onClick={() => requestWine(r.index)}
+                            >
+                              Request wine
+                            </button>
+                          )}
+                          {/* Per-row import button — visible once a row has a valid selection */}
+                          {isImportableRow(r) && (
+                            <button
+                              className="btn btn-primary btn-xs btn-import-row"
+                              onClick={() => handleImportRow(r)}
+                              disabled={isThisRowImporting || rowImporting !== null || importing}
+                              title="Import this bottle now"
+                            >
+                              {isThisRowImporting ? '…' : 'Import'}
+                            </button>
+                          )}
+                          {isSkipped || isRequested ? (
+                            <button
+                              className="btn btn-secondary btn-xs"
+                              onClick={() => unskipItem(r.index)}
+                            >
+                              Undo
+                            </button>
+                          ) : (
+                            <button
+                              className="btn btn-secondary btn-xs btn-skip"
+                              onClick={() => skipItem(r.index)}
+                            >
+                              Skip
+                            </button>
+                          )}
+                        </div>
+                      )}
 
                       {/* Expanded candidate list */}
-                      {isExpanded && r.matches.length > 0 && (
+                      {!isImported && isExpanded && r.matches.length > 0 && (
                         <div className="candidates-list">
                           {r.matches.map((m) => (
                             <button
@@ -834,6 +1099,20 @@ function ImportBottles() {
                 </button>
               ))}
             </div>
+            {searchResults.length > 0 && (
+              <div className="search-modal-footer">
+                <p className="search-none-right">None of these look right?</p>
+                <button
+                  className="btn btn-secondary btn-sm btn-request"
+                  onClick={() => {
+                    requestWine(searchModal.index);
+                    setSearchModal(null);
+                  }}
+                >
+                  Request this wine
+                </button>
+              </div>
+            )}
           </div>
         </Modal>
       )}
