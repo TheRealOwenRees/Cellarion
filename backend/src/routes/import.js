@@ -13,6 +13,8 @@ const { getOrCreateDailySnapshot } = require('../utils/exchangeRates');
 const { resolveRating } = require('../utils/ratingUtils');
 const { normalizeString, combinedSimilarity } = require('../utils/normalize');
 const searchService = require('../services/search');
+const { identifyWineFromText } = require('../services/labelScan');
+const { findOrCreateWine } = require('../services/findOrCreateWine');
 const { CONSUMED_STATUSES } = require('../config/constants');
 const { stripHtml } = require('../utils/sanitize');
 const WineRequest = require('../models/WineRequest');
@@ -20,6 +22,43 @@ const ImportSession = require('../models/ImportSession');
 
 const router = express.Router();
 router.use(requireAuth);
+
+// Extracts any plain-text explanation the model appended after its JSON object.
+// Models sometimes add "**Reason**: ..." or similar after the closing brace.
+function extractAiExplanation(raw) {
+  if (!raw) return null;
+  let depth = 0, inStr = false, esc = false;
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i];
+    if (esc) { esc = false; continue; }
+    if (c === '\\' && inStr) { esc = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === '{') depth++;
+    if (c === '}' && --depth === 0) {
+      return raw.slice(i + 1).replace(/^\s*\*{0,2}Reason\*{0,2}:?\s*/i, '').trim() || null;
+    }
+  }
+  return null;
+}
+
+// Concurrency-limited equivalent of Promise.allSettled.
+// Runs at most `concurrency` tasks simultaneously so we don't blast the AI
+// rate limit (50 req/min for Haiku) when a large import has many no-match wines.
+async function runConcurrent(tasks, concurrency) {
+  const results = new Array(tasks.length);
+  let next = 0;
+  async function worker() {
+    while (next < tasks.length) {
+      const i = next++;
+      try { results[i] = { status: 'fulfilled', value: await tasks[i]() }; }
+      catch (err) { results[i] = { status: 'rejected', reason: err }; }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, worker));
+  return results;
+}
+const AI_CONCURRENCY = 5; // stay well under the 50 req/min cap
 
 // Maximum items per import batch
 const MAX_IMPORT_SIZE = 500;
@@ -190,39 +229,139 @@ router.post('/validate', async (req, res) => {
       return res.status(403).json({ error: 'Not authorized to import bottles to this cellar' });
     }
 
-    const results = [];
+    const isAdmin = req.user.roles && req.user.roles.includes('admin');
 
+    // Pass 1: library matching for all items (sequential — DB queries)
+    // If item.forceAi === true, skip DB matching and treat as no-match so AI runs.
+    const preResults = [];
     for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-
-      // Validate required fields
+      const { forceAi, ...item } = items[i];
       if (!item.wineName && !item.producer) {
-        results.push({
-          index: i,
-          item,
-          status: 'error',
-          error: 'Wine name or producer is required',
-          matches: []
-        });
+        preResults.push({ index: i, item, errorMsg: 'Wine name or producer is required' });
+      } else if (forceAi) {
+        preResults.push({ index: i, item, matches: [] });
+      } else {
+        const matches = await findWineMatches(item);
+        preResults.push({ index: i, item, matches });
+      }
+    }
+
+    // Pass 2: deduplicated parallel AI identification for all no-match items.
+    // Items sharing the same normalized name+producer make only ONE AI call —
+    // the result is shared so duplicates (same wine, different vintages) don't
+    // each trigger a separate Claude request.
+    const noMatchPrs = process.env.ANTHROPIC_API_KEY
+      ? preResults.filter(pr => pr.matches && pr.matches.length === 0 && pr.item.wineName && pr.item.producer)
+      : [];
+
+    // Build unique wine keys and map them to the first preResult that needs the AI call
+    const aiKeyMap = new Map(); // normalizedKey -> preResult (representative)
+    for (const pr of noMatchPrs) {
+      const key = `${normalizeString(pr.item.wineName)}:${normalizeString(pr.item.producer)}`;
+      if (!aiKeyMap.has(key)) aiKeyMap.set(key, pr);
+    }
+
+    // One AI call per unique wine, throttled to AI_CONCURRENCY at a time
+    const uniquePrs = [...aiKeyMap.values()];
+    const aiSettled = await runConcurrent(
+      uniquePrs.map(pr => () => identifyWineFromText({
+        name: pr.item.wineName,
+        producer: pr.item.producer,
+        vintage: pr.item.vintage,
+        country: pr.item.country
+      })),
+      AI_CONCURRENCY
+    );
+
+    // Build a key -> AI result lookup
+    const aiByKey = new Map();
+    for (let j = 0; j < uniquePrs.length; j++) {
+      const key = `${normalizeString(uniquePrs[j].item.wineName)}:${normalizeString(uniquePrs[j].item.producer)}`;
+      aiByKey.set(key, aiSettled[j]);
+    }
+
+    // Attach the shared AI result to every no-match preResult with that key
+    for (const pr of noMatchPrs) {
+      const key = `${normalizeString(pr.item.wineName)}:${normalizeString(pr.item.producer)}`;
+      const settled = aiByKey.get(key);
+      if (settled.status === 'fulfilled') {
+        // identifyWineFromText now returns { data, debugRaw, debugReason }
+        pr.aiIdentified = settled.value.data;        // null = AI returned unknown
+        pr.aiDebugRaw    = settled.value.debugRaw;
+        pr.aiDebugReason = settled.value.debugReason;
+      } else {
+        pr.aiError = settled.reason?.message;
+      }
+    }
+
+    // Pass 3: create wines for AI-identified items, deduplicated by wine key
+    // so findOrCreateWine is called once per unique wine (not once per bottle).
+    const createdWineCache = new Map(); // normalizedKey -> { wine, created } | { error }
+    for (const pr of preResults) {
+      if (!pr.aiIdentified) continue;
+      const key = `${normalizeString(pr.aiIdentified.name)}:${normalizeString(pr.aiIdentified.producer)}`;
+      if (createdWineCache.has(key)) {
+        const cached = createdWineCache.get(key);
+        if (cached.wine) { pr.aiWine = cached.wine; pr.aiWineCreated = false; }
+        else pr.aiWineError = cached.error;
+      } else {
+        try {
+          const { wine, created } = await findOrCreateWine(pr.aiIdentified, req.user.id);
+          createdWineCache.set(key, { wine, created });
+          pr.aiWine = wine;
+          pr.aiWineCreated = created;
+        } catch (err) {
+          createdWineCache.set(key, { error: err.message });
+          pr.aiWineError = err.message;
+        }
+      }
+    }
+
+    // Pass 4: build final results
+    const results = [];
+    for (const pr of preResults) {
+      if (pr.errorMsg) {
+        results.push({ index: pr.index, item: pr.item, status: 'error', error: pr.errorMsg, matches: [] });
         continue;
       }
 
-      const matches = await findWineMatches(item);
+      let status, resultMatches, aiDebug = null;
+      const { matches } = pr;
 
-      let status;
       if (matches.length === 0) {
-        status = 'no_match';
+        if (pr.aiWine) {
+          status = 'ai_match';
+          resultMatches = [{
+            wineId: pr.aiWine._id,
+            name: pr.aiWine.name,
+            producer: pr.aiWine.producer,
+            country: pr.aiWine.country?.name || null,
+            region: pr.aiWine.region?.name || null,
+            appellation: pr.aiWine.appellation || null,
+            type: pr.aiWine.type,
+            image: pr.aiWine.image || null,
+            score: pr.aiIdentified.confidence ?? 1,
+            aiIdentified: true
+          }];
+          // no aiDebug needed for ai_match — wine was successfully identified
+        } else {
+          status = 'no_match';
+          resultMatches = [];
+
+          // Include AI debug info for all users when AI was attempted
+          if (process.env.ANTHROPIC_API_KEY && (pr.item.wineName || pr.item.producer)) {
+            const aiStatus = pr.aiError || pr.aiDebugReason === 'rate_limit_exceeded' ||
+              (pr.aiDebugReason && pr.aiDebugReason.startsWith('exception'))
+              ? 'failed' : (pr.aiWineError ? 'create_failed' : 'searched');
+            const aiExplanation = aiStatus === 'create_failed' && pr.aiWineError
+              ? pr.aiWineError
+              : extractAiExplanation(pr.aiDebugRaw);
+            aiDebug = { aiStatus, ...(aiExplanation && { aiExplanation }) };
+          }
+        }
       } else if (matches[0].score >= EXACT_THRESHOLD) {
         status = 'exact';
-      } else {
-        status = 'fuzzy';
-      }
-
-      results.push({
-        index: i,
-        item,
-        status,
-        matches: matches.map(m => ({
+        resultMatches = matches.map(m => ({
           wineId: m.wine._id,
           name: m.wine.name,
           producer: m.wine.producer,
@@ -232,8 +371,25 @@ router.post('/validate', async (req, res) => {
           type: m.wine.type,
           image: m.wine.image || null,
           score: Math.round(m.score * 100) / 100
-        }))
-      });
+        }));
+      } else {
+        status = 'fuzzy';
+        resultMatches = matches.map(m => ({
+          wineId: m.wine._id,
+          name: m.wine.name,
+          producer: m.wine.producer,
+          country: m.wine.country?.name || null,
+          region: m.wine.region?.name || null,
+          appellation: m.wine.appellation || null,
+          type: m.wine.type,
+          image: m.wine.image || null,
+          score: Math.round(m.score * 100) / 100
+        }));
+      }
+
+      const result = { index: pr.index, item: pr.item, status, matches: resultMatches };
+      if (aiDebug) result.aiDebug = aiDebug;
+      results.push(result);
     }
 
     res.json({
@@ -243,6 +399,7 @@ router.post('/validate', async (req, res) => {
         total: results.length,
         exact: results.filter(r => r.status === 'exact').length,
         fuzzy: results.filter(r => r.status === 'fuzzy').length,
+        aiMatch: results.filter(r => r.status === 'ai_match').length,
         noMatch: results.filter(r => r.status === 'no_match').length,
         errors: results.filter(r => r.status === 'error').length
       }

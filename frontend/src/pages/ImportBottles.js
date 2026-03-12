@@ -26,6 +26,7 @@ const FORMAT_LABELS = {
 const STATUS_LABELS = {
   exact: 'Matched',
   fuzzy: 'Review',
+  ai_match: 'AI Match',
   no_match: 'No Match',
   error: 'Error',
   skipped: 'Skipped'
@@ -34,6 +35,7 @@ const STATUS_LABELS = {
 const STATUS_CLASSES = {
   exact: 'status-exact',
   fuzzy: 'status-fuzzy',
+  ai_match: 'status-ai',
   no_match: 'status-nomatch',
   error: 'status-error',
   skipped: 'status-skipped'
@@ -50,8 +52,9 @@ const TYPE_DOTS = {
 
 function ImportBottles() {
   const { id: cellarId } = useParams();
-  const { apiFetch } = useAuth();
+  const { apiFetch, user } = useAuth();
   const navigate = useNavigate();
+  const isAdmin = user?.roles?.includes('admin');
 
   // Step state
   const [step, setStep] = useState('upload');
@@ -67,6 +70,7 @@ function ImportBottles() {
   const [results, setResults] = useState([]);
   const [summary, setSummary] = useState(null);
   const [validating, setValidating] = useState(false);
+  const [validationProgress, setValidationProgress] = useState({ done: 0, total: 0 });
   const [selections, setSelections] = useState({}); // index -> wineId or 'skip'
   const [searchModal, setSearchModal] = useState(null); // { index } or null
   const [searchQuery, setSearchQuery] = useState('');
@@ -79,6 +83,8 @@ function ImportBottles() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
   const [rowImporting, setRowImporting] = useState(null); // index of row being individually imported
+  const [retryingRow, setRetryingRow] = useState(null);  // index of row running AI retry
+  const [aiSearchingRow, setAiSearchingRow] = useState(null); // index of fuzzy row doing forced AI search
 
   // Session persistence
   const [sessionId, setSessionId] = useState(null);
@@ -159,6 +165,7 @@ function ImportBottles() {
     total: rs.length,
     exact: rs.filter(r => r.status === 'exact').length,
     fuzzy: rs.filter(r => r.status === 'fuzzy').length,
+    aiMatch: rs.filter(r => r.status === 'ai_match').length,
     noMatch: rs.filter(r => r.status === 'no_match').length,
     errors: rs.filter(r => r.status === 'error').length
   });
@@ -264,30 +271,55 @@ function ImportBottles() {
 
   // ── Validation ──────────────────────────────────────────────────────────
 
+  const VALIDATE_BATCH_SIZE = 25;
+
   const handleValidate = async () => {
     setValidating(true);
     setError(null);
 
-    try {
-      const res = await validateImport(apiFetch, {
-        cellarId,
-        items: parsedItems
-      });
-      const data = await res.json();
+    const total = parsedItems.length;
+    setValidationProgress({ done: 0, total });
 
-      if (!res.ok) {
-        setError(data.error || 'Validation failed');
-        setValidating(false);
-        return;
+    const allResults = [];
+    let combinedSummary = null;
+
+    try {
+      for (let offset = 0; offset < total; offset += VALIDATE_BATCH_SIZE) {
+        // Re-index each batch so indices match their position in parsedItems
+        const batch = parsedItems.slice(offset, offset + VALIDATE_BATCH_SIZE);
+
+        const res = await validateImport(apiFetch, { cellarId, items: batch });
+        const data = await res.json();
+
+        if (!res.ok) {
+          setError(data.error || 'Validation failed');
+          setValidating(false);
+          return;
+        }
+
+        // Shift batch-local indices back to global indices
+        const shifted = data.results.map(r => ({ ...r, index: r.index + offset }));
+        allResults.push(...shifted);
+
+        // Merge summaries
+        if (!combinedSummary) {
+          combinedSummary = { ...data.summary };
+        } else {
+          for (const key of Object.keys(data.summary)) {
+            combinedSummary[key] = (combinedSummary[key] || 0) + (data.summary[key] || 0);
+          }
+        }
+
+        setValidationProgress({ done: Math.min(offset + VALIDATE_BATCH_SIZE, total), total });
       }
 
-      setResults(data.results);
-      setSummary(data.summary);
+      setResults(allResults);
+      setSummary(combinedSummary);
 
-      // Auto-select exact matches
+      // Auto-select exact, fuzzy, and AI-identified matches
       const autoSelections = {};
-      data.results.forEach((r) => {
-        if (r.status === 'exact' && r.matches.length > 0) {
+      allResults.forEach((r) => {
+        if ((r.status === 'exact' || r.status === 'fuzzy' || r.status === 'ai_match') && r.matches.length > 0) {
           autoSelections[r.index] = r.matches[0].wineId;
         }
       });
@@ -297,6 +329,57 @@ function ImportBottles() {
       setError('Network error during validation');
     } finally {
       setValidating(false);
+    }
+  };
+
+  // ── Per-row AI retry ─────────────────────────────────────────────────────
+
+  const handleRetryAI = async (rowIndex) => {
+    const r = results.find(res => res.index === rowIndex);
+    if (!r) return;
+    setRetryingRow(rowIndex);
+    try {
+      const res = await validateImport(apiFetch, { cellarId, items: [r.item] });
+      const data = await res.json();
+      if (!res.ok || !data.results?.[0]) return;
+      const updated = { ...data.results[0], index: rowIndex };
+      setResults(prev => prev.map(x => x.index === rowIndex ? updated : x));
+      if (updated.status === 'ai_match' && updated.matches.length > 0) {
+        setSelections(prev => ({ ...prev, [rowIndex]: updated.matches[0].wineId }));
+      }
+    } catch {
+      // Non-fatal
+    } finally {
+      setRetryingRow(null);
+    }
+  };
+
+  // ── Per-row forced AI search (for fuzzy rows) ────────────────────────────
+  // Skips DB matching entirely and asks AI to identify the wine.
+
+  const handleAiSearch = async (rowIndex) => {
+    const r = results.find(res => res.index === rowIndex);
+    if (!r) return;
+    setAiSearchingRow(rowIndex);
+    try {
+      const res = await validateImport(apiFetch, {
+        cellarId,
+        items: [{ ...r.item, forceAi: true }],
+      });
+      const data = await res.json();
+      if (!res.ok || !data.results?.[0]) return;
+      const updated = { ...data.results[0], index: rowIndex };
+      setResults(prev => prev.map(x => x.index === rowIndex ? updated : x));
+      if ((updated.status === 'ai_match' || updated.status === 'exact' || updated.status === 'fuzzy') && updated.matches.length > 0) {
+        setSelections(prev => ({ ...prev, [rowIndex]: updated.matches[0].wineId }));
+      } else {
+        // AI couldn't identify — clear the old fuzzy selection
+        setSelections(prev => { const next = { ...prev }; delete next[rowIndex]; return next; });
+      }
+    } catch {
+      // Non-fatal
+    } finally {
+      setAiSearchingRow(null);
     }
   };
 
@@ -392,7 +475,7 @@ function ImportBottles() {
   const selectAllExact = () => {
     const sel = { ...selections };
     results.forEach(r => {
-      if (r.status === 'exact' && r.matches.length > 0) {
+      if ((r.status === 'exact' || r.status === 'fuzzy') && r.matches.length > 0) {
         sel[r.index] = r.matches[0].wineId;
       }
     });
@@ -632,13 +715,28 @@ function ImportBottles() {
             </table>
           </div>
 
-          <button
-            className="btn btn-primary btn-validate"
-            onClick={handleValidate}
-            disabled={validating}
-          >
-            {validating ? 'Matching wines...' : `Match ${parsedItems.length} bottles against wine library`}
-          </button>
+          {validating ? (
+            <div className="validate-progress">
+              <div className="progress-spinner" />
+              <p className="validate-progress-label">
+                Matching wines… {validationProgress.done} / {validationProgress.total}
+              </p>
+              <div className="validate-progress-track">
+                <div
+                  className="validate-progress-fill"
+                  style={{ width: validationProgress.total > 0 ? `${Math.round(validationProgress.done / validationProgress.total * 100)}%` : '0%' }}
+                />
+              </div>
+              <p className="progress-hint">AI is identifying unknown wines — this may take a moment for large collections</p>
+            </div>
+          ) : (
+            <button
+              className="btn btn-primary btn-validate"
+              onClick={handleValidate}
+            >
+              {`Match ${parsedItems.length} bottle${parsedItems.length !== 1 ? 's' : ''} against wine library`}
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -685,6 +783,12 @@ function ImportBottles() {
             <span className="summary-number summary-fuzzy">{summary?.fuzzy || 0}</span>
             <span className="summary-label">Fuzzy</span>
           </div>
+          {(summary?.aiMatch || 0) > 0 && (
+            <div className="summary-stat">
+              <span className="summary-number summary-ai">{summary.aiMatch}</span>
+              <span className="summary-label">AI Added</span>
+            </div>
+          )}
           <div className="summary-stat">
             <span className="summary-number summary-nomatch">{summary?.noMatch || 0}</span>
             <span className="summary-label">No Match</span>
@@ -825,14 +929,36 @@ function ImportBottles() {
                             {selectedWine.country || ''}
                             {selectedWine.region ? ` · ${selectedWine.region}` : ''}
                           </span>
-                          {selectedWine.score != null && (
+                          {r.status === 'ai_match' && (
+                            <span className="match-ai-badge">AI</span>
+                          )}
+                          {selectedWine.score != null && r.status !== 'ai_match' && (
                             <span className="match-score">{Math.round(selectedWine.score * 100)}% match</span>
                           )}
                         </div>
                       ) : r.status === 'error' ? (
                         <span className="match-error">{r.error}</span>
                       ) : (
-                        <span className="match-pending">Select a match &rarr;</span>
+                        <>
+                          <span className="match-pending">No match found</span>
+                          {r.aiDebug && (
+                            <details className={`ai-info-details${r.aiDebug.aiStatus === 'failed' || r.aiDebug.aiStatus === 'create_failed' ? ' ai-info-warn' : ''}`}>
+                              <summary>
+                                {r.aiDebug.aiStatus === 'failed' ? 'AI lookup failed' :
+                                 r.aiDebug.aiStatus === 'create_failed' ? 'AI found a match but couldn\'t save it' :
+                                 'Why no match?'}
+                              </summary>
+                              <p>
+                                {r.aiDebug.aiExplanation ||
+                                 (r.aiDebug.aiStatus === 'failed'
+                                   ? 'The AI lookup encountered a temporary issue. Request the wine to be added manually.'
+                                   : r.aiDebug.aiStatus === 'create_failed'
+                                   ? 'The AI identified this wine but encountered an error saving it. Try requesting it manually.'
+                                   : 'AI searched but could not identify this wine. Request it to be added to the registry.')}
+                              </p>
+                            </details>
+                          )}
+                        </>
                       )}
                     </td>
                     <td className="col-details">
@@ -845,7 +971,15 @@ function ImportBottles() {
                     <td className="col-actions">
                       {isImported ? null : (
                         <div className="action-buttons">
-                          {r.matches.length > 1 && !isSkipped && !isRequested && (
+                          {r.matches.length > 0 && r.status === 'fuzzy' && !isSkipped && !isRequested && (
+                            <button
+                              className="btn btn-secondary btn-xs"
+                              onClick={() => setExpandedRow(isExpanded ? null : r.index)}
+                            >
+                              {isExpanded ? 'Hide' : r.matches.length > 1 ? `${r.matches.length} options` : 'Change'}
+                            </button>
+                          )}
+                          {r.matches.length > 1 && r.status !== 'fuzzy' && !isSkipped && !isRequested && (
                             <button
                               className="btn btn-secondary btn-xs"
                               onClick={() => setExpandedRow(isExpanded ? null : r.index)}
@@ -853,12 +987,13 @@ function ImportBottles() {
                               {isExpanded ? 'Hide' : `${r.matches.length} options`}
                             </button>
                           )}
-                          {!isSkipped && !isRequested && (
+                          {r.status === 'fuzzy' && !isSkipped && !isRequested && (
                             <button
                               className="btn btn-secondary btn-xs"
-                              onClick={() => openSearchModal(r.index)}
+                              onClick={() => handleAiSearch(r.index)}
+                              disabled={aiSearchingRow === r.index}
                             >
-                              Search
+                              {aiSearchingRow === r.index ? 'Searching…' : 'Try AI'}
                             </button>
                           )}
                           {(r.status === 'no_match' || r.status === 'fuzzy') && !isSkipped && !isRequested && (
@@ -867,17 +1002,6 @@ function ImportBottles() {
                               onClick={() => requestWine(r.index)}
                             >
                               Request wine
-                            </button>
-                          )}
-                          {/* Per-row import button — visible once a row has a valid selection */}
-                          {isImportableRow(r) && (
-                            <button
-                              className="btn btn-primary btn-xs btn-import-row"
-                              onClick={() => handleImportRow(r)}
-                              disabled={isThisRowImporting || rowImporting !== null || importing}
-                              title="Import this bottle now"
-                            >
-                              {isThisRowImporting ? '…' : 'Import'}
                             </button>
                           )}
                           {isSkipped || isRequested ? (

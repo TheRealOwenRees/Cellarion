@@ -367,6 +367,7 @@
 
 .summary-exact { color: #6B9E78; }
 .summary-fuzzy { color: #C8A87E; }
+.summary-ai    { color: #7EB3D4; }
 .summary-nomatch { color: #E07060; }
 .summary-importable { color: #7B9E88; }
 .summary-imported   { color: #5a8a68; }
@@ -462,6 +463,11 @@
   color: #E07060;
 }
 
+.status-badge.status-ai {
+  background: #0e2535;
+  color: #7EB3D4;
+}
+
 .status-badge.status-skipped {
   background: #1e1e1e;
   color: #666;
@@ -528,6 +534,18 @@
   color: #7B9E88 !important;
   font-size: 0.72rem !important;
   font-weight: 600;
+}
+
+.match-ai-badge {
+  display: inline-block;
+  background: #0e2535;
+  color: #7EB3D4;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid #7EB3D4;
 }
 
 .match-skipped {
@@ -685,6 +703,35 @@
 
 .btn-import {
   min-width: 200px;
+}
+
+/* ── Validation Progress ─────────────────────────────────────────────────── */
+
+.validate-progress {
+  text-align: center;
+  padding: 1.5rem 0 0.5rem;
+}
+
+.validate-progress-label {
+  color: #E8DFD0;
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+.validate-progress-track {
+  height: 6px;
+  background: #2a2a2a;
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 0 auto 0.5rem;
+  max-width: 360px;
+}
+
+.validate-progress-fill {
+  height: 100%;
+  background: #7B9E88;
+  border-radius: 3px;
+  transition: width 0.3s ease;
 }
 
 /* ── Importing Step ──────────────────────────────────────────────────────── */
@@ -938,4 +985,82 @@
   .done-actions {
     flex-direction: column;
   }
+}
+
+/* Admin AI debug panel */
+.ai-info-details {
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+}
+
+.ai-info-details summary {
+  cursor: pointer;
+  color: #9dbfad;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.ai-info-details summary::before {
+  content: '▸';
+  font-size: 0.65rem;
+  transition: transform 0.15s;
+}
+
+.ai-info-details[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.ai-info-details p {
+  margin: 0.35rem 0 0;
+  padding: 0.5rem 0.6rem;
+  background: #1a2a1e;
+  border-left: 2px solid #9dbfad;
+  border-radius: 0 4px 4px 0;
+  color: #c8ddc0;
+  line-height: 1.4;
+}
+
+.ai-info-details.ai-info-warn summary { color: #d4a76a; }
+.ai-info-details.ai-info-warn p {
+  background: #2a1f10;
+  border-left-color: #d4a76a;
+  color: #e8c890;
+}
+
+.ai-debug-details {
+  margin-top: 0.4rem;
+  font-size: 0.7rem;
+  color: var(--text-muted, #888);
+}
+
+.ai-debug-details summary {
+  cursor: pointer;
+  color: #7EB3D4;
+  user-select: none;
+}
+
+.ai-debug-pre {
+  margin: 0.3rem 0 0;
+  padding: 0.4rem 0.5rem;
+  background: #0d1a24;
+  border: 1px solid #1e3448;
+  border-radius: 4px;
+  color: #a8c8e0;
+  font-size: 0.68rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.btn-retry-ai {
+  color: #7EB3D4;
+  border-color: #7EB3D4;
+}
+
+.btn-retry-ai:hover:not(:disabled) {
+  background: #0e2535;
 }
