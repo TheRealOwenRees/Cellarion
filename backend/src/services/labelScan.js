@@ -111,17 +111,11 @@ async function scanLabelFull(image, mediaType = 'image/jpeg') {
             text: aiConfig.get().labelScanPrompt
           }
         ]
-      },
-      // Prefill the assistant turn to force it to start with '{'
-      {
-        role: 'assistant',
-        content: '{'
       }
     ]
   });
 
-  // The model continues from the '{' prefill — prepend it back
-  const raw = ('{' + (response.content[0]?.text ?? '')).trim();
+  const raw = (response.content[0]?.text ?? '').trim();
 
   // Strip any accidental markdown fences just in case
   const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
@@ -197,8 +191,7 @@ async function identifyWineFromText({ name, producer, vintage, country }) {
     model: aiConfig.get().importLookupModel,
     max_tokens: 400,
     messages: [
-      { role: 'user', content: prompt },
-      { role: 'assistant', content: '{' }
+      { role: 'user', content: prompt }
     ]
   };
 
@@ -206,7 +199,7 @@ async function identifyWineFromText({ name, producer, vintage, country }) {
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       const response = await client.messages.create(apiParams);
-      raw = ('{' + (response.content[0]?.text ?? '')).trim();
+      raw = (response.content[0]?.text ?? '').trim();
       // Strip code fences, then extract only the first balanced {...} so any
       // trailing explanation text from the model doesn't break JSON.parse.
       const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
@@ -246,8 +239,7 @@ async function identifyWineFromQuery(query) {
     model: aiConfig.get().importLookupModel,
     max_tokens: 400,
     messages: [
-      { role: 'user', content: prompt },
-      { role: 'assistant', content: '{' }
+      { role: 'user', content: prompt }
     ]
   };
 
@@ -255,7 +247,7 @@ async function identifyWineFromQuery(query) {
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       const response = await client.messages.create(apiParams);
-      raw = ('{' + (response.content[0]?.text ?? '')).trim();
+      raw = (response.content[0]?.text ?? '').trim();
       const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
       const parsed = JSON.parse(extractFirstJsonObject(stripped));
 
@@ -303,8 +295,7 @@ async function suggestDrinkWindow({ name, producer, vintage, country, region, ap
     model: aiConfig.get().maturitySuggestModel,
     max_tokens: 500,
     messages: [
-      { role: 'user', content: prompt },
-      { role: 'assistant', content: '{' }
+      { role: 'user', content: prompt }
     ]
   };
 
@@ -312,7 +303,7 @@ async function suggestDrinkWindow({ name, producer, vintage, country, region, ap
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       const response = await client.messages.create(apiParams);
-      raw = ('{' + (response.content[0]?.text ?? '')).trim();
+      raw = (response.content[0]?.text ?? '').trim();
       const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
       const parsed = JSON.parse(extractFirstJsonObject(stripped));
 
@@ -355,8 +346,7 @@ async function suggestPrice({ name, producer, vintage, country, region, appellat
     model: aiConfig.get().priceSuggestModel,
     max_tokens: 400,
     messages: [
-      { role: 'user', content: prompt },
-      { role: 'assistant', content: '{' }
+      { role: 'user', content: prompt }
     ]
   };
 
@@ -364,7 +354,7 @@ async function suggestPrice({ name, producer, vintage, country, region, appellat
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       const response = await client.messages.create(apiParams);
-      raw = ('{' + (response.content[0]?.text ?? '')).trim();
+      raw = (response.content[0]?.text ?? '').trim();
       const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
       const parsed = JSON.parse(extractFirstJsonObject(stripped));
 
