@@ -28,6 +28,7 @@ const supportRoute = require('./routes/support');
 const wineReportsRoute = require('./routes/wineReports');
 const importRoute = require('./routes/import');
 const racksRoute = require('./routes/racks');
+const cellarLayoutRoute = require('./routes/cellarLayout');
 const imagesRoute = require('./routes/images');
 const sommMaturityRoute = require('./routes/somm/maturity');
 const sommPricesRoute  = require('./routes/somm/prices');
@@ -40,6 +41,7 @@ const settingsRoute = require('./routes/settings');
 const reviewsRoute = require('./routes/reviews');
 const followsRoute = require('./routes/follows');
 const discussionsRoute = require('./routes/discussions');
+const pushSubscriptionsRoute = require('./routes/pushSubscriptions');
 const rateLimitsConfig = require('./config/rateLimits');
 const aiConfig = require('./config/aiConfig');
 const { logAudit } = require('./services/audit');
@@ -148,6 +150,7 @@ app.use('/api/support', supportRoute);
 app.use('/api/wine-reports', wineReportsRoute);
 app.use('/api/bottles/import', importRoute);
 app.use('/api/racks', racksRoute);
+app.use('/api/cellar-layout', cellarLayoutRoute);
 app.use('/api/images', imagesRoute);
 app.use('/api/somm/maturity', sommMaturityRoute);
 app.use('/api/somm/prices',  sommPricesRoute);
@@ -160,6 +163,7 @@ app.use('/api/settings', settingsRoute);
 app.use('/api/reviews', reviewsRoute);
 app.use('/api/follows', followsRoute);
 app.use('/api/discussions', discussionsRoute);
+app.use('/api/push-subscriptions', pushSubscriptionsRoute);
 
 // 404 handler
 app.use((req, res) => {
