@@ -21,6 +21,7 @@ function CellarHistory() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     fetchHistory();
@@ -102,6 +103,25 @@ function CellarHistory() {
         </div>
       )}
 
+      {/* Search */}
+      {total > 0 && (
+        <div className="history-search">
+          <svg className="history-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input
+            type="text"
+            className="search-input"
+            placeholder={t('history.searchPlaceholder', 'Search by name, producer, or vintage…')}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          {search && (
+            <button className="history-search-clear" onClick={() => setSearch('')} aria-label={t('common.clear', 'Clear')}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          )}
+        </div>
+      )}
+
       {total === 0 && (
         <div className="empty-state">
           <p>{t('history.emptyHistoryHint')}</p>
@@ -109,30 +129,49 @@ function CellarHistory() {
         </div>
       )}
 
-      {Object.entries(REASON_CONFIG).map(([key, cfg]) => {
-        const items = grouped[key] || [];
-        if (items.length === 0) return null;
-        return (
-          <section key={key} className={`history-section ${cfg.className}`}>
-            <div className="history-section-header">
-              <span className="history-section-icon">{cfg.icon}</span>
-              <h2>{t(REASON_LABEL_KEYS[key])} <span className="section-count">({items.length})</span></h2>
-            </div>
-            <div className="history-bottles">
-              {items.map(bottle => (
-                <HistoryBottleCard key={bottle._id} bottle={bottle} />
-              ))}
-            </div>
-          </section>
-        );
-      })}
+      {(() => {
+        const q = search.toLowerCase().trim();
+        const matchesSearch = (bottle) => {
+          if (!q) return true;
+          const wine = bottle.wineDefinition;
+          const name = (wine?.name || '').toLowerCase();
+          const producer = (wine?.producer || '').toLowerCase();
+          const vintage = String(bottle.vintage || '').toLowerCase();
+          return name.includes(q) || producer.includes(q) || vintage.includes(q);
+        };
+
+        let anyVisible = false;
+        const sections = Object.entries(REASON_CONFIG).map(([key, cfg]) => {
+          const items = (grouped[key] || []).filter(matchesSearch);
+          if (items.length === 0) return null;
+          anyVisible = true;
+          return (
+            <section key={key} className={`history-section ${cfg.className}`}>
+              <div className="history-section-header">
+                <span className="history-section-icon">{cfg.icon}</span>
+                <h2>{t(REASON_LABEL_KEYS[key])} <span className="section-count">({items.length})</span></h2>
+              </div>
+              <div className="history-bottles">
+                {items.map(bottle => (
+                  <HistoryBottleCard key={bottle._id} bottle={bottle} cellarId={id} />
+                ))}
+              </div>
+            </section>
+          );
+        });
+
+        if (q && !anyVisible) {
+          return <p className="history-no-results">{t('history.noResults', 'No bottles match your search.')}</p>;
+        }
+        return sections;
+      })()}
 
       </>}
     </div>
   );
 }
 
-function HistoryBottleCard({ bottle }) {
+function HistoryBottleCard({ bottle, cellarId }) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const wine = bottle.wineDefinition;
@@ -141,7 +180,11 @@ function HistoryBottleCard({ bottle }) {
     : null;
 
   return (
-    <div className={`history-bottle-card ${bottle.consumedReason || bottle.status}`}>
+    <Link
+      to={`/cellars/${cellarId}/bottles/${bottle._id}`}
+      state={{ fromHistory: true }}
+      className={`history-bottle-card ${bottle.consumedReason || bottle.status}`}
+    >
       <div className="history-bottle-main">
         {wine?.image && (
           <img
@@ -160,6 +203,7 @@ function HistoryBottleCard({ bottle }) {
             {bottle.price && <span>· {t('history.paidLabel')} {bottle.price} {bottle.currency}</span>}
           </div>
         </div>
+        <svg className="history-bottle-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </div>
 
       {/* Consumption details */}
@@ -174,7 +218,7 @@ function HistoryBottleCard({ bottle }) {
           <p className="history-note">"{bottle.consumedNote}"</p>
         )}
       </div>
-    </div>
+    </Link>
   );
 }
 
