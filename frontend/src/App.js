@@ -51,6 +51,8 @@ const NfcRedirect          = lazy(() => import('./pages/NfcRedirect'));
 const Wishlist             = lazy(() => import('./pages/Wishlist'));
 const AddToWishlist        = lazy(() => import('./pages/AddToWishlist'));
 const Unsubscribed         = lazy(() => import('./pages/Unsubscribed'));
+const Recommendations      = lazy(() => import('./pages/Recommendations'));
+const WineDetail           = lazy(() => import('./pages/WineDetail'));
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -172,6 +174,14 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/recommendations"
+          element={
+            <ProtectedRoute>
+              <Layout><Recommendations /></Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/cellar-chat"
           element={
             <ProtectedRoute>
@@ -268,7 +278,8 @@ function AppRoutes() {
           }
         />
 
-        {/* Blog routes — public, no auth required */}
+        {/* Public content — no auth required */}
+        <Route path="/wines/:id" element={<WineDetail />} />
         <Route path="/blog" element={<Layout><Blog /></Layout>} />
         <Route path="/blog/:slug" element={<Layout><BlogPost /></Layout>} />
 
