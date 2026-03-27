@@ -4,6 +4,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { GuideProvider } from './contexts/GuideContext';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import './styles/common.css';
@@ -56,6 +57,7 @@ const Recommendations      = lazy(() => import('./pages/Recommendations'));
 const Journal              = lazy(() => import('./pages/Journal'));
 const Restock              = lazy(() => import('./pages/Restock'));
 const WineDetail           = lazy(() => import('./pages/WineDetail'));
+const Help                 = lazy(() => import('./pages/Help'));
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -309,6 +311,7 @@ function AppRoutes() {
         <Route path="/wines/:id" element={<WineDetail />} />
         <Route path="/blog" element={<Layout><Blog /></Layout>} />
         <Route path="/blog/:slug" element={<Layout><BlogPost /></Layout>} />
+        <Route path="/help" element={<Layout><Help /></Layout>} />
 
         {/* Admin routes */}
         <Route
@@ -418,7 +421,9 @@ function App() {
         <BrowserRouter>
           <AuthProvider>
             <NotificationProvider>
-              <AppRoutes />
+              <GuideProvider>
+                <AppRoutes />
+              </GuideProvider>
             </NotificationProvider>
           </AuthProvider>
         </BrowserRouter>

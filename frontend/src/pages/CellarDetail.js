@@ -147,13 +147,14 @@ function CellarDetail() {
           {!loading && (
             <div className="cellar-header-desktop-actions">
               {canEdit && (
-                <Link to={`/cellars/${id}/add-bottle`} className="btn btn-primary btn-small">
+                <Link to={`/cellars/${id}/add-bottle`} className="btn btn-primary btn-small" data-guide="add-bottle">
                   + {t('cellarDetail.addBottle')}
                 </Link>
               )}
               <div className="more-menu-wrap">
                 <button
                   className="btn btn-secondary btn-small btn-more"
+                  data-guide="more-menu-btn"
                   onClick={() => setMoreOpen(o => !o)}
                   aria-label="More actions"
                   aria-haspopup="menu"
@@ -182,6 +183,7 @@ function CellarDetail() {
                       {cellar.userRole === 'owner' && (
                         <button
                           className="more-menu-item"
+                          data-guide="share-cellar"
                           onClick={() => { setShowShareModal(true); setMoreOpen(false); }}
                         >
                           <span aria-hidden="true">🔗</span> {t('cellarDetail.share')}
@@ -190,6 +192,7 @@ function CellarDetail() {
                       <Link
                         to={`/cellars/${id}/racks`}
                         className="more-menu-item"
+                        data-guide="rack-view"
                         onClick={() => setMoreOpen(false)}
                       >
                         <span aria-hidden="true">🗄️</span> {t('cellarDetail.racks')}
@@ -197,6 +200,7 @@ function CellarDetail() {
                       <Link
                         to={`/cellars/${id}/history`}
                         className="more-menu-item"
+                        data-guide="cellar-history"
                         onClick={() => setMoreOpen(false)}
                       >
                         <span aria-hidden="true">📖</span> {t('cellarDetail.historyMenuItem')}
@@ -205,6 +209,7 @@ function CellarDetail() {
                         <Link
                           to={`/cellars/${id}/import`}
                           className="more-menu-item"
+                          data-guide="cellar-import"
                           onClick={() => setMoreOpen(false)}
                         >
                           <span aria-hidden="true">📥</span> Import Bottles
@@ -367,7 +372,7 @@ function CellarDetail() {
               </div>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
             </Link>
-            <Link to={`/cellars/${id}/room`} className="overview-link-card">
+            <Link to={`/cellars/${id}/room`} className="overview-link-card" data-guide="cellar-room">
               <span className="overview-link-icon" aria-hidden="true">🏠</span>
               <div>
                 <strong>{t('cellarDetail.roomView', 'Room View')} <span className="overview-beta-badge">Beta</span></strong>
