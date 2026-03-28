@@ -3,20 +3,9 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { toggleReplyLike, getReplyOriginal, banUser } from '../api/discussions';
 import WineReferenceCard from './WineReferenceCard';
+import CellarCredBadge from './CellarCredBadge';
+import timeAgo from '../utils/timeAgo';
 import './ReplyCard.css';
-
-function timeAgo(dateStr) {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  const months = Math.floor(days / 30);
-  return `${months}mo ago`;
-}
 
 function QuoteBlock({ quote }) {
   if (!quote || !quote.body) return null;
@@ -138,6 +127,7 @@ export default function ReplyCard({ reply, discussionId, onReply, onEdit, onDele
         </Link>
         {author.roles?.includes('moderator') && <span className="badge badge--mod">Mod</span>}
         {author.roles?.includes('admin') && <span className="badge badge--admin">Admin</span>}
+        <CellarCredBadge tier={author.contribution?.tier} specialty={author.contribution?.specialty} />
         <span className="reply-card__time">{timeAgo(reply.createdAt)}</span>
         {reply.updatedAt !== reply.createdAt && (
           <span className="reply-card__edited">(edited)</span>

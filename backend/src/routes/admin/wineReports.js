@@ -3,6 +3,9 @@ const router = express.Router();
 const WineReport = require('../../models/WineReport');
 const { requireAuth, requireRole } = require('../../middleware/auth');
 const { logAudit } = require('../../services/audit');
+const { stripHtml } = require('../../utils/sanitize');
+const { incrementCred } = require('../../utils/cellarCred');
+const { parsePagination } = require('../../utils/pagination');
 
 const REPORT_STATUSES = ['pending', 'resolved', 'dismissed'];
 const REPORT_REASONS = ['wrong_info', 'duplicate', 'inappropriate', 'other'];
@@ -12,8 +15,8 @@ router.use(requireAuth, requireRole('admin'));
 // GET /api/admin/wine-reports — list all wine reports
 router.get('/', async (req, res) => {
   try {
-    const { status, reason, page = 1, limit = 20 } = req.query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const { status, reason } = req.query;
+    const { limit, offset, page } = parsePagination(req.query, { limit: 20, maxLimit: 200 });
 
     // Retrieve from static arrays so values in the filter are never user-tainted
     const statusIdx = REPORT_STATUSES.indexOf(String(status || ''));
@@ -25,8 +28,8 @@ router.get('/', async (req, res) => {
     const [reports, total] = await Promise.all([
       WineReport.find(filter)
         .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit))
+        .skip(offset)
+        .limit(limit)
         .populate('user', 'username email')
         .populate('wineDefinition', 'name producer country type')
         .populate('duplicateOf', 'name producer')
@@ -35,7 +38,7 @@ router.get('/', async (req, res) => {
       WineReport.countDocuments(filter)
     ]);
 
-    res.json({ reports, total, page: parseInt(page), limit: parseInt(limit) });
+    res.json({ reports, total, page, limit });
   } catch (err) {
     console.error('Admin list wine reports error:', err);
     res.status(500).json({ error: 'Failed to list wine reports' });
@@ -72,10 +75,13 @@ router.put('/:id/resolve', async (req, res) => {
     }
 
     report.status = 'resolved';
-    report.adminNotes = adminNotes ? adminNotes.trim() : undefined;
+    report.adminNotes = adminNotes ? stripHtml(adminNotes) : undefined;
     report.resolvedBy = req.user.id;
     report.resolvedAt = new Date();
     await report.save();
+
+    // Award Cellar Cred to the reporter
+    incrementCred(report.user, 'wine_report_resolved').catch(() => {});
 
     logAudit(req, 'wine.report.resolved', { type: 'WineReport', id: report._id }, {
       wineDefinitionId: report.wineDefinition
@@ -103,7 +109,7 @@ router.put('/:id/dismiss', async (req, res) => {
     }
 
     report.status = 'dismissed';
-    report.adminNotes = adminNotes ? adminNotes.trim() : undefined;
+    report.adminNotes = adminNotes ? stripHtml(adminNotes) : undefined;
     report.resolvedBy = req.user.id;
     report.resolvedAt = new Date();
     await report.save();

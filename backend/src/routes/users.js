@@ -257,7 +257,7 @@ router.get('/search', requireAuth, async (req, res) => {
 router.get('/public/:userId', requireAuth, async (req, res) => {
   try {
     const user = await User.findById(req.params.userId)
-      .select('username displayName bio followersCount followingCount reviewCount profileVisibility createdAt preferences.ratingScale');
+      .select('username displayName bio followersCount followingCount reviewCount profileVisibility createdAt preferences.ratingScale contribution');
 
     if (!user) return res.status(404).json({ error: 'User not found' });
 
@@ -278,6 +278,12 @@ router.get('/public/:userId', requireAuth, async (req, res) => {
         profileVisibility: user.profileVisibility,
         ratingScale: user.preferences?.ratingScale || '5',
         createdAt: user.createdAt,
+        contribution: {
+          totalScore: user.contribution?.totalScore || 0,
+          tier: user.contribution?.tier || 'newcomer',
+          specialty: user.contribution?.specialty || null,
+          categories: user.contribution?.categories || {},
+        },
         isFollowing
       }
     });
@@ -314,7 +320,7 @@ router.get('/me/export', requireAuth, async (req, res) => {
       Cellar.find({ $or: [{ user: userId }, { 'members.user': userId }], deletedAt: null }).lean(),
       Rack.find({ cellar: { $in: await Cellar.distinct('_id', { user: userId }) }, deletedAt: null }).lean(),
       WineRequest.find({ user: userId }).lean(),
-      Review.find({ user: userId }).lean(),
+      Review.find({ author: userId }).lean(),
       Notification.find({ user: userId }).lean(),
       AuditLog.find({ 'actor.userId': userId }).sort({ timestamp: -1 }).limit(1000).lean(),
       BottleImage.find({ uploadedBy: userId }).lean(),
@@ -337,7 +343,8 @@ router.get('/me/export', requireAuth, async (req, res) => {
         profileVisibility: user.profileVisibility,
         emailVerified: user.emailVerified,
         gdprConsent: user.gdprConsent,
-        createdAt: user.createdAt
+        createdAt: user.createdAt,
+        contribution: user.contribution || { totalScore: 0, categories: {}, tier: 'newcomer', specialty: null, rewardsGranted: [] }
       },
       bottles,
       cellars,
@@ -470,14 +477,10 @@ router.get('/unsubscribe', async (req, res) => {
   }
 
   try {
-    const crypto = require('crypto');
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    // The unsubscribe token is the user's ID hashed with a secret
-    // We'll find the user by trying all users (or use a more efficient method)
-    // For simplicity, encode the user ID in the token
-    const [userId] = Buffer.from(token, 'base64url').toString().split(':');
+    const { verifyUnsubscribeToken } = require('../utils/unsubscribe');
+    const userId = verifyUnsubscribeToken(token);
 
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ error: 'Invalid unsubscribe link' });
     }
 

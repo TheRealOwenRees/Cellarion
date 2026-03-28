@@ -11,6 +11,7 @@ const User = require('../models/User');
 const WineDefinition = require('../models/WineDefinition');
 const { stripHtml } = require('../utils/sanitize');
 const { logAudit } = require('../services/audit');
+const { incrementCred } = require('../utils/cellarCred');
 const { DISCUSSIONS_PER_PAGE, DISCUSSIONS_MAX_PER_PAGE, DISCUSSION_MAX_LENGTHS } = require('../config/constants');
 
 const router = express.Router();
@@ -72,7 +73,7 @@ router.get('/', async (req, res) => {
         .sort(sortObj)
         .skip(skip)
         .limit(limit)
-        .populate('author', 'username displayName roles')
+        .populate('author', 'username displayName roles contribution.tier contribution.specialty')
         .populate({ path: 'wineDefinition', select: 'name producer type', populate: { path: 'country', select: 'name' } }),
       Discussion.countDocuments(filter)
     ]);
@@ -219,7 +220,7 @@ router.get('/:id', async (req, res) => {
     if (!isValidId(req.params.id)) return res.status(400).json({ error: 'Invalid discussion ID' });
 
     const discussion = await Discussion.findById(req.params.id)
-      .populate('author', 'username displayName roles')
+      .populate('author', 'username displayName roles contribution.tier contribution.specialty')
       .populate({ path: 'wineDefinition', select: 'name producer type', populate: { path: 'country', select: 'name' } });
 
     if (!discussion) return res.status(404).json({ error: 'Discussion not found' });
@@ -265,9 +266,10 @@ router.post('/', async (req, res) => {
     });
 
     await discussion.save();
+    incrementCred(req.user.id, 'discussion_created').catch(() => {});
     logAudit(req, 'discussion.create', { type: 'discussion', id: discussion._id }, { title: cleanTitle, category });
 
-    await discussion.populate('author', 'username displayName roles');
+    await discussion.populate('author', 'username displayName roles contribution.tier contribution.specialty');
 
     res.status(201).json({ discussion });
   } catch (err) {
@@ -313,7 +315,7 @@ router.put('/:id', async (req, res) => {
     await discussion.save();
     logAudit(req, 'discussion.update', { type: 'discussion', id: discussion._id });
 
-    await discussion.populate('author', 'username displayName roles');
+    await discussion.populate('author', 'username displayName roles contribution.tier contribution.specialty');
     res.json({ discussion });
   } catch (err) {
     console.error('Update discussion error:', err);
@@ -358,7 +360,7 @@ router.get('/:id/replies', async (req, res) => {
         .sort({ createdAt: 1 })
         .skip(skip)
         .limit(limit)
-        .populate('author', 'username displayName roles')
+        .populate('author', 'username displayName roles contribution.tier contribution.specialty')
         .populate({ path: 'wineDefinition', select: 'name producer type', populate: { path: 'country', select: 'name' } }),
       DiscussionReply.countDocuments({ discussion: req.params.id })
     ]);
@@ -437,6 +439,7 @@ router.post('/:id/replies', async (req, res) => {
     });
 
     await reply.save();
+    incrementCred(req.user.id, 'discussion_reply_created').catch(() => {});
 
     // Update discussion counters
     Discussion.updateOne(
@@ -459,7 +462,7 @@ router.post('/:id/replies', async (req, res) => {
 
     logAudit(req, 'discussion_reply.create', { type: 'discussion_reply', id: reply._id }, { discussion: discussion._id });
 
-    await reply.populate('author', 'username displayName roles');
+    await reply.populate('author', 'username displayName roles contribution.tier contribution.specialty');
     await reply.populate({ path: 'wineDefinition', select: 'name producer type', populate: { path: 'country', select: 'name' } });
 
     res.status(201).json({ reply });
@@ -493,7 +496,7 @@ router.put('/:discussionId/replies/:replyId', async (req, res) => {
     await reply.save();
     logAudit(req, 'discussion_reply.update', { type: 'discussion_reply', id: reply._id });
 
-    await reply.populate('author', 'username displayName roles');
+    await reply.populate('author', 'username displayName roles contribution.tier contribution.specialty');
     res.json({ reply });
   } catch (err) {
     console.error('Update reply error:', err);
@@ -553,6 +556,11 @@ router.post('/:discussionId/replies/:replyId/like', async (req, res) => {
     const reply = await DiscussionReply.findById(req.params.replyId);
     if (!reply) return res.status(404).json({ error: 'Reply not found' });
 
+    // Cannot like your own reply
+    if (reply.author.toString() === req.user.id) {
+      return res.status(400).json({ error: 'Cannot like your own reply' });
+    }
+
     const existing = await DiscussionReplyVote.findOne({ user: req.user.id, reply: reply._id });
 
     if (existing) {
@@ -562,6 +570,7 @@ router.post('/:discussionId/replies/:replyId/like', async (req, res) => {
     } else {
       await new DiscussionReplyVote({ user: req.user.id, reply: reply._id }).save();
       await DiscussionReply.updateOne({ _id: reply._id }, { $inc: { likesCount: 1 } });
+      incrementCred(reply.author.toString(), 'reply_like_received').catch(() => {});
       res.json({ liked: true, likesCount: reply.likesCount + 1 });
     }
   } catch (err) {
@@ -642,13 +651,16 @@ router.post('/:id/report', async (req, res) => {
     const discussion = await Discussion.findById(req.params.id);
     if (!discussion) return res.status(404).json({ error: 'Discussion not found' });
 
+    const VALID_REASONS = ['spam', 'harassment', 'off_topic', 'inappropriate', 'other'];
     const { reason, details } = req.body;
-    if (!reason) return res.status(400).json({ error: 'Reason is required' });
+    if (!reason || !VALID_REASONS.includes(String(reason))) {
+      return res.status(400).json({ error: 'Valid reason is required (spam, harassment, off_topic, inappropriate, other)' });
+    }
 
     const report = new DiscussionReport({
       user: req.user.id,
       discussion: discussion._id,
-      reason,
+      reason: String(reason),
       details: details ? stripHtml(details) : undefined
     });
 
@@ -670,13 +682,16 @@ router.post('/:discussionId/replies/:replyId/report', async (req, res) => {
     const reply = await DiscussionReply.findById(req.params.replyId);
     if (!reply) return res.status(404).json({ error: 'Reply not found' });
 
+    const VALID_REASONS = ['spam', 'harassment', 'off_topic', 'inappropriate', 'other'];
     const { reason, details } = req.body;
-    if (!reason) return res.status(400).json({ error: 'Reason is required' });
+    if (!reason || !VALID_REASONS.includes(String(reason))) {
+      return res.status(400).json({ error: 'Valid reason is required (spam, harassment, off_topic, inappropriate, other)' });
+    }
 
     const report = new DiscussionReport({
       user: req.user.id,
       reply: reply._id,
-      reason,
+      reason: String(reason),
       details: details ? stripHtml(details) : undefined
     });
 

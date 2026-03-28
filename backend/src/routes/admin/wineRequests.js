@@ -7,6 +7,9 @@ const { generateWineKey } = require('../../utils/normalize');
 const searchService = require('../../services/search');
 const { logAudit } = require('../../services/audit');
 const { createNotification } = require('../../services/notifications');
+const { stripHtml } = require('../../utils/sanitize');
+const { incrementCred } = require('../../utils/cellarCred');
+const { parsePagination } = require('../../utils/pagination');
 
 const router = express.Router();
 
@@ -17,23 +20,34 @@ router.use(requireAuth, requireRole('admin'));
 router.get('/', async (req, res) => {
   try {
     const { status } = req.query;
+    const { limit, offset: skip } = parsePagination(req.query, { limit: 50, maxLimit: 200 });
     const filter = {};
+    const VALID_STATUSES = ['pending', 'resolved', 'rejected'];
 
     if (status) {
-      filter.status = status;
+      if (!VALID_STATUSES.includes(String(status))) {
+        return res.status(400).json({ error: 'Invalid status filter' });
+      }
+      filter.status = String(status);
     }
 
-    const requests = await WineRequest.find(filter)
-      .populate('user', 'username email')
-      .populate({
-        path: 'linkedWineDefinition',
-        populate: ['country', 'region', 'grapes']
-      })
-      .populate('resolvedBy', 'username')
-      .sort({ status: 1, createdAt: 1 }); // Pending first, oldest first
+    const [requests, total] = await Promise.all([
+      WineRequest.find(filter)
+        .populate('user', 'username email')
+        .populate({
+          path: 'linkedWineDefinition',
+          populate: ['country', 'region', 'grapes']
+        })
+        .populate('resolvedBy', 'username')
+        .sort({ status: 1, createdAt: 1 })
+        .skip(skip)
+        .limit(limit),
+      WineRequest.countDocuments(filter)
+    ]);
 
     res.json({
       count: requests.length,
+      total,
       requests
     });
   } catch (error) {
@@ -141,9 +155,13 @@ router.put('/:id/resolve', async (req, res) => {
     wineRequest.resolvedBy = req.user.id;
     wineRequest.resolvedAt = new Date();
     wineRequest.linkedWineDefinition = linkedWine._id;
-    wineRequest.adminNotes = adminNotes?.trim() || '';
+    wineRequest.adminNotes = adminNotes ? stripHtml(adminNotes) : '';
 
     await wineRequest.save();
+
+    // Award Cellar Cred to the submitting user
+    const credEvent = wineRequest.requestType === 'grape_suggestion' ? 'grape_suggestion_approved' : 'wine_request_approved';
+    incrementCred(wineRequest.user, credEvent).catch(() => {});
 
     // Backfill any bottles that were imported while waiting for this wine
     let backfilledCount = 0;
