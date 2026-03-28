@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
 import { getBlogPosts, getBlogTags } from '../api/blog';
 import { useAuth } from '../contexts/AuthContext';
+import SITE_URL from '../config/siteUrl';
 import './Blog.css';
 
 function Blog() {
@@ -73,7 +74,20 @@ function Blog() {
         <meta name="description" content="News, tips, and updates from the Cellarion team. Learn about wine cellar management, drink windows, and getting the most from your collection." />
         <meta property="og:title" content={`${t('blog.title')} — Cellarion`} />
         <meta property="og:description" content="News, tips, and updates from the Cellarion team." />
-        <meta property="og:type" content="blog" />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content={`${SITE_URL}/blog`} />
+        <link rel="canonical" href={`${SITE_URL}/blog`} />
+        <link rel="alternate" hrefLang="en" href={`${SITE_URL}/blog`} />
+        <link rel="alternate" hrefLang="sv" href={`${SITE_URL}/blog`} />
+        <link rel="alternate" hrefLang="x-default" href={`${SITE_URL}/blog`} />
+        <script type="application/ld+json">{JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'CollectionPage',
+          name: `${t('blog.title')} — Cellarion`,
+          description: 'News, tips, and updates from the Cellarion team.',
+          url: `${SITE_URL}/blog`,
+          isPartOf: { '@type': 'WebSite', '@id': `${SITE_URL}/#website` }
+        })}</script>
       </Helmet>
 
       <header className="blog-header">
