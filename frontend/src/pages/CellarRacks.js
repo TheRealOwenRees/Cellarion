@@ -11,6 +11,7 @@ import RackRenderer from '../components/racks/RackRenderer';
 import RackTypeSelector, { TYPE_DIMENSIONS } from '../components/racks/RackTypeSelector';
 import RatingInput from '../components/RatingInput';
 import WineImage from '../components/WineImage';
+import ConfirmModal from '../components/ConfirmModal';
 import './CellarRacks.css';
 
 function CellarRacks() {
@@ -41,6 +42,9 @@ function CellarRacks() {
 
   // NFC modal: { rackId } or null
   const [nfcModal, setNfcModal] = useState(null);
+
+  // Delete confirmation: rackId or null
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   useEffect(() => {
     fetchAll();
@@ -151,14 +155,17 @@ function CellarRacks() {
 
   // --- delete rack ---
   const handleDeleteRack = async (rackId) => {
-    if (!window.confirm(t('racks.deleteRackConfirm'))) return;
-    const res = await deleteRack(apiFetch, rackId);
-    if (res.ok) {
-      const remaining = racks.filter(r => r._id !== rackId);
-      setRacks(remaining);
-      if (selectedRackId === rackId) {
-        setSelectedRackId(remaining.length > 0 ? remaining[0]._id : null);
+    try {
+      const res = await deleteRack(apiFetch, rackId);
+      if (res.ok) {
+        const remaining = racks.filter(r => r._id !== rackId);
+        setRacks(remaining);
+        if (selectedRackId === rackId) {
+          setSelectedRackId(remaining.length > 0 ? remaining[0]._id : null);
+        }
       }
+    } finally {
+      setDeleteConfirm(null);
     }
   };
 
@@ -306,7 +313,7 @@ function CellarRacks() {
                 setActivePopup({ rackId: rack._id, position: pos, slot: slotData || null });
               }
             }}
-            onDelete={() => handleDeleteRack(rack._id)}
+            onDelete={() => setDeleteConfirm(rack._id)}
             onNfcLink={() => setNfcModal({ rackId: rack._id })}
           />
           </div>
@@ -362,6 +369,23 @@ function CellarRacks() {
           onCancel={() => setNfcModal(null)}
         />
       )}
+
+      {/* Delete rack confirmation */}
+      {deleteConfirm && (() => {
+        const rackToDelete = racks.find(r => r._id === deleteConfirm);
+        if (!rackToDelete) return null;
+        const bottleCount = (rackToDelete.slots || []).length;
+        return (
+          <ConfirmModal
+            title={t('racks.deleteRack')}
+            message={t('racks.deleteConfirmName', { name: rackToDelete.name })}
+            warning={bottleCount > 0 ? t('racks.deleteConfirmBottles', { count: bottleCount }) : undefined}
+            confirmLabel={t('racks.deleteRack')}
+            onConfirm={() => handleDeleteRack(deleteConfirm)}
+            onCancel={() => setDeleteConfirm(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

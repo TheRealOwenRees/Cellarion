@@ -10,6 +10,7 @@
     "creating": "Skapar...",
     "loading": "Laddar...",
     "confirm": "Bekräfta",
+    "typeToConfirm": "Skriv \"{{name}}\" för att bekräfta",
     "back": "Tillbaka",
     "close": "Stäng",
     "yes": "Ja",
@@ -360,6 +361,8 @@
     "noRacks": "Inga hyllor ännu. Skapa en för att börja kartlägga din källare.",
     "deleteRack": "Ta bort hylla",
     "deleteRackConfirm": "Ta bort denna hylla och alla dess platshänvisningar?",
+    "deleteConfirmName": "Är du säker på att du vill ta bort \"{{name}}\"?",
+    "deleteConfirmBottles": "Denna hylla har {{count}} flaska/flaskor tilldelade till platser. De kommer att avkopplas.",
     "slotPlaceBottle": "Plats {{position}} — Placera en flaska",
     "slotTitle": "Plats {{position}}",
     "searchWines": "Sök viner...",
@@ -591,7 +594,9 @@
       "prestigeLabel": "Prestige",
       "appellationNameLabel": "Appellationsnamn *",
       "appellationRegionLabel": "Region (valfri)",
-      "appellationRegionNone": "Ingen specifik region"
+      "appellationRegionNone": "Ingen specifik region",
+      "confirmDeleteItem": "Är du säker på att du vill ta bort detta objekt?",
+      "deleteWarning": "Denna åtgärd kan inte ångras."
     },
     "wines": {
       "title": "Admin: Vinbibliotek",
@@ -1206,7 +1211,9 @@
     "addedToWishlist": "Tillagd i önskelistan",
     "statusPending": "Väntande",
     "statusSeen": "Sedd",
-    "statusAddedToWishlist": "Tillagd i önskelistan"
+    "statusAddedToWishlist": "Tillagd i önskelistan",
+    "delete": "Ta bort",
+    "confirmDelete": "Ta bort denna rekommendation?"
   },
   "wineDetail": {
     "appellation": "Appellation",
