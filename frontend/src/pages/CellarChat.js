@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../contexts/AuthContext';
 import './CellarChat.css';
@@ -52,8 +53,14 @@ const PROMPT_CATEGORIES = [
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function WineCard({ wine }) {
+  const hasLink = wine.cellarId && wine.bottleId;
+  const Wrapper = hasLink ? Link : 'div';
+  const linkProps = hasLink
+    ? { to: `/cellars/${wine.cellarId}/bottles/${wine.bottleId}`, state: { fromChat: true } }
+    : {};
+
   return (
-    <div className="cellar-chat__wine-card" aria-label={wine.grapes?.join(', ')}>
+    <Wrapper className="cellar-chat__wine-card" aria-label={wine.grapes?.join(', ')} {...linkProps}>
       <div className="cellar-chat__wine-card-name">{wine.name}</div>
       <div className="cellar-chat__wine-card-meta">
         {wine.vintage} · {wine.producer}
@@ -61,7 +68,8 @@ function WineCard({ wine }) {
       {wine.region && (
         <div className="cellar-chat__wine-card-meta">{wine.region}</div>
       )}
-    </div>
+      {hasLink && <div className="cellar-chat__wine-card-arrow">›</div>}
+    </Wrapper>
   );
 }
 
@@ -141,6 +149,23 @@ function StarterPrompts({ onSelect, disabled }) {
 
 export default function CellarChat() {
   const { apiFetch, user } = useAuth();
+  const defaultCellarId = user?.preferences?.defaultCellarId || null;
+
+  const [cellars, setCellars] = useState([]);
+  const [selectedCellarIds, setSelectedCellarIds] = useState(
+    () => defaultCellarId ? [defaultCellarId] : []
+  );
+  const [cellarPickerOpen, setCellarPickerOpen] = useState(false);
+
+  // Fetch user's cellars for the selector
+  useEffect(() => {
+    apiFetch('/api/cellars')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.cellars) setCellars(data.cellars);
+      })
+      .catch(() => {});
+  }, [apiFetch]);
 
   // Restore from sessionStorage on mount
   const [messages, setMessages] = useState(() => {
@@ -217,6 +242,7 @@ export default function CellarChat() {
           useQueryExpansion: true,
           history,
           previousWines: wineContext,
+          cellarIds: selectedCellarIds.length > 0 ? selectedCellarIds : [],
         }),
       });
 
@@ -298,6 +324,56 @@ export default function CellarChat() {
           )}
         </div>
       </div>
+
+      {cellars.length > 1 && (
+        <div className="cellar-chat__scope">
+          <button
+            type="button"
+            className="cellar-chat__scope-btn"
+            onClick={() => setCellarPickerOpen(o => !o)}
+            aria-expanded={cellarPickerOpen}
+          >
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path d="M2 4h16M5 10h10M8 16h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+            {selectedCellarIds.length === 0
+              ? 'All cellars'
+              : selectedCellarIds.length === 1
+                ? (cellars.find(c => c._id === selectedCellarIds[0])?.name || 'Selected cellar')
+                : `${selectedCellarIds.length} cellars`}
+          </button>
+          {cellarPickerOpen && (
+            <div className="cellar-chat__scope-dropdown">
+              <label className="cellar-chat__scope-option">
+                <input
+                  type="checkbox"
+                  checked={selectedCellarIds.length === 0}
+                  onChange={() => setSelectedCellarIds([])}
+                />
+                <span>All cellars</span>
+              </label>
+              {cellars.map(c => (
+                <label key={c._id} className="cellar-chat__scope-option">
+                  <input
+                    type="checkbox"
+                    checked={selectedCellarIds.includes(c._id)}
+                    onChange={() => {
+                      setSelectedCellarIds(prev => {
+                        if (prev.includes(c._id)) {
+                          const next = prev.filter(id => id !== c._id);
+                          return next;
+                        }
+                        return [...prev, c._id];
+                      });
+                    }}
+                  />
+                  <span>{c.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="cellar-chat__messages">
         {messages.length === 0 ? (
