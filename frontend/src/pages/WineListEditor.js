@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getWineList, updateWineList, publishWineList, unpublishWineList, uploadWineListLogo, getWineListStats } from '../api/wineLists';
+import { getWineList, updateWineList, publishWineList, unpublishWineList, uploadWineListLogo, getWineListStats, previewWineListPdf } from '../api/wineLists';
 import { getCellar } from '../api/cellars';
 import './WineListEditor.css';
 
@@ -249,11 +249,18 @@ function WineListEditor() {
     if (isNaN(pct)) return;
     const multiplier = 1 + pct / 100;
 
+    // Look up bottle purchase price for entries that have no listPrice yet
+    const bottlePriceMap = new Map(bottles.map(b => [b._id, b.price]));
+    const adjustPrice = (entry) => {
+      const base = entry.listPrice != null ? entry.listPrice : (bottlePriceMap.get(entry.bottle) || null);
+      return base != null ? Math.round(base * multiplier) : null;
+    };
+
     if (wineList.structureMode === 'custom') {
       const updated = { ...wineList };
       for (const section of updated.sections || []) {
         for (const entry of section.entries || []) {
-          if (entry.listPrice != null) entry.listPrice = Math.round(entry.listPrice * multiplier);
+          entry.listPrice = adjustPrice(entry);
           if (entry.glassPrice != null) entry.glassPrice = Math.round(entry.glassPrice * multiplier);
         }
       }
@@ -261,12 +268,40 @@ function WineListEditor() {
     } else {
       const entries = (wineList.autoGroupEntries || []).map(e => ({
         ...e,
-        listPrice: e.listPrice != null ? Math.round(e.listPrice * multiplier) : e.listPrice,
+        listPrice: adjustPrice(e),
         glassPrice: e.glassPrice != null ? Math.round(e.glassPrice * multiplier) : e.glassPrice,
       }));
       setWineList({ ...wineList, autoGroupEntries: entries });
     }
-    setBulkPercent('');
+  };
+
+  // --- Calculate glass prices ---
+  const calculateGlassPrices = () => {
+    const layout = wineList.layout || {};
+    const glasses = layout.glassesPerBottle || 6;
+    const markup = layout.glassMarkup || 0;
+    const multiplier = (1 + markup / 100) / glasses;
+
+    const calcGlass = (entry) => {
+      if (entry.listPrice == null) return null;
+      return Math.round(entry.listPrice * multiplier);
+    };
+
+    if (wineList.structureMode === 'custom') {
+      const updated = { ...wineList };
+      for (const section of updated.sections || []) {
+        for (const entry of section.entries || []) {
+          entry.glassPrice = calcGlass(entry);
+        }
+      }
+      setWineList({ ...updated });
+    } else {
+      const entries = (wineList.autoGroupEntries || []).map(e => ({
+        ...e,
+        glassPrice: calcGlass(e),
+      }));
+      setWineList({ ...wineList, autoGroupEntries: entries });
+    }
   };
 
   // --- Publish/Unpublish ---
@@ -312,8 +347,16 @@ function WineListEditor() {
   };
 
   // --- Preview PDF ---
-  const openPreview = () => {
-    window.open(`${API_BASE}/api/wine-lists/${listId}/preview-pdf`, '_blank');
+  const openPreview = async () => {
+    try {
+      const res = await previewWineListPdf(apiFetch, listId);
+      if (!res.ok) throw new Error('Failed to generate PDF');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } catch {
+      alert('Failed to generate PDF preview');
+    }
   };
 
   const getPublicUrl = () => {
@@ -742,6 +785,44 @@ function WineListEditor() {
             />
             Show glass prices
           </label>
+          {layout.showGlassPrice && (
+            <div className="wle-glass-calc">
+              <div className="wle-glass-calc-fields">
+                <div className="form-group">
+                  <label>Glasses per bottle</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="20"
+                    value={layout.glassesPerBottle || 6}
+                    onChange={e => setWineList({
+                      ...wineList,
+                      layout: { ...layout, glassesPerBottle: parseInt(e.target.value) || 6 }
+                    })}
+                    style={{ width: '80px' }}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Glass markup %</label>
+                  <input
+                    type="number"
+                    value={layout.glassMarkup || 0}
+                    onChange={e => setWineList({
+                      ...wineList,
+                      layout: { ...layout, glassMarkup: parseFloat(e.target.value) || 0 }
+                    })}
+                    style={{ width: '80px' }}
+                  />
+                </div>
+                <button className="btn btn-small btn-secondary" onClick={calculateGlassPrices}>
+                  Calculate glass prices
+                </button>
+              </div>
+              <p className="text-muted-sm">
+                Formula: (bottle price / {layout.glassesPerBottle || 6}) {layout.glassMarkup ? `\u00d7 ${(1 + (layout.glassMarkup || 0) / 100).toFixed(2)}` : ''} = glass price
+              </p>
+            </div>
+          )}
         </div>
       )}
 
