@@ -5,7 +5,6 @@ const Bottle = require('../models/Bottle');
 const WineDefinition = require('../models/WineDefinition');
 const { logAudit } = require('../services/audit');
 const { createNotification } = require('../services/notifications');
-const User = require('../models/User');
 const { stripHtml } = require('../utils/sanitize');
 const { isValidId } = require('../utils/validation');
 
@@ -110,7 +109,8 @@ router.get('/', async (req, res) => {
     const search = String(req.query.q || '').trim();
     const occasion = req.query.occasion;
 
-    const query = { user: new mongoose.Types.ObjectId(req.user.id) };
+    if (!isValidId(req.user.id)) return res.status(401).json({ error: 'Invalid user' });
+    const query = { user: req.user.id };
 
     if (occasion && OCCASIONS.includes(occasion)) {
       query.occasion = occasion;
