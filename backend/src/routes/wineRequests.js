@@ -1,5 +1,6 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
+const { logAudit } = require('../services/audit');
 const WineRequest = require('../models/WineRequest');
 const WineDefinition = require('../models/WineDefinition');
 const { isValidId } = require('../utils/validation');
@@ -55,6 +56,7 @@ router.post('/', async (req, res) => {
         status: 'pending'
       });
       await wineRequest.save();
+      logAudit(req, 'wineRequest.create', { type: 'wineRequest', id: wineRequest._id });
       return res.status(201).json({ wineRequest });
     }
 
@@ -72,6 +74,7 @@ router.post('/', async (req, res) => {
       status: 'pending'
     });
     await wineRequest.save();
+    logAudit(req, 'wineRequest.create', { type: 'wineRequest', id: wineRequest._id });
     res.status(201).json({ wineRequest });
   } catch (error) {
     console.error('Create wine request error:', error);
